@@ -9,10 +9,6 @@
 
 **A tiny DOM event utility with composable sugar.**
 
-
-# on-events
-
-**A tiny DOM event utility with composable sugar.**
 Write clean event bindings using fluent chains like `On.click(...)`, `On.capture.passive.scroll(...)`, `On.first.delegate.click(...)`, or classic `on(el, 'click', fn)`.
 
 ---
