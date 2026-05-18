@@ -15,7 +15,8 @@
     },
     "files": [
         "dist",
-        "ADDITIONAL_TERMS.md"
+        "ADDITIONAL_TERMS.md",
+        "robots.txt"
     ],
     "keywords": [
         "dom",
