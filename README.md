@@ -385,4 +385,4 @@ Removes a previously added listener.
 
 ## License
 
---{DR.WATT v3.0}--
+See [LICENSE](./LICENSE). © WATT3D.
