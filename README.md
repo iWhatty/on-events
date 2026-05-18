@@ -1,10 +1,11 @@
 
 # on-events
 
-[![npm version](https://img.shields.io/npm/v/on-events.svg)](https://www.npmjs.com/package/on-events)
-[![npm downloads](https://img.shields.io/npm/dm/on-events.svg)](https://www.npmjs.com/package/on-events)
-[![GitHub stars](https://img.shields.io/github/stars/iWhatty/on-event-js.svg?style=social)](https://github.com/iWhatty/on-event-js)
-[![License](https://img.shields.io/github/license/iWhatty/on-event-js.svg)](https://github.com/iWhatty/on-event-js/blob/main/LICENSE)
+[![npm](https://img.shields.io/npm/v/on-events)](https://www.npmjs.com/package/on-events)
+[![downloads](https://img.shields.io/npm/dm/on-events)](https://www.npmjs.com/package/on-events)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/on-events)](https://bundlephobia.com/package/on-events)
+[![license](https://img.shields.io/npm/l/on-events)](https://github.com/iWhatty/on-event-js/blob/main/LICENSE)
+[![stars](https://img.shields.io/github/stars/iWhatty/on-event-js?style=social)](https://github.com/iWhatty/on-event-js)
 
 **A tiny DOM event utility with composable sugar.**
 
