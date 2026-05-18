@@ -14,7 +14,8 @@
         }
     },
     "files": [
-        "dist"
+        "dist",
+        "ADDITIONAL_TERMS.md"
     ],
     "keywords": [
         "dom",
@@ -28,7 +29,7 @@
         "utility"
     ],
     "author": "WATT3D <WATT3D@protonmail.com>",
-    "license": "SEE LICENSE IN LICENSE",
+    "license": "AGPL-3.0-only",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/iWhatty/on-event-js.git"
