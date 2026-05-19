@@ -1,20 +1,28 @@
 {
     "name": "on-events",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "description": "Tiny DOM event utility with composable sugar, delegation, and cleanup.",
     "type": "module",
     "sideEffects": false,
     "main": "./dist/on-events.min.js",
-    "module": "./dist/on-events.min.js",
+    "module": "./src/on-events.js",
     "types": "./dist/on-events.d.ts",
     "exports": {
         ".": {
             "types": "./dist/on-events.d.ts",
-            "import": "./dist/on-events.min.js"
+            "import": "./src/on-events.js",
+            "default": "./dist/on-events.min.js"
+        },
+        "./min": {
+            "types": "./dist/on-events.d.ts",
+            "default": "./dist/on-events.min.js"
         }
     },
     "files": [
+        "src",
         "dist",
+        "README.md",
+        "LICENSE",
         "ADDITIONAL_TERMS.md",
         "robots.txt"
     ],

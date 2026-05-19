@@ -31,6 +31,8 @@ A tiny DOM event utility with composable sugar. Write clean event bindings using
 pnpm add on-events
 ```
 
+As of 0.0.5 the default entry routes bundlers at ESM source so unused exports can be tree-shaken; pre-built minified bundle remains available via the `on-events/min` subpath for unbundled `<script type="module">` use.
+
 ---
 
 ## Quick start
