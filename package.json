@@ -4,6 +4,9 @@
     "description": "Tiny DOM event utility with composable sugar, delegation, and cleanup.",
     "type": "module",
     "sideEffects": false,
+    "engines": {
+        "node": ">=18"
+    },
     "main": "./dist/on-events.min.js",
     "module": "./src/on-events.js",
     "types": "./dist/on-events.d.ts",
