@@ -3,8 +3,9 @@
 [![npm](https://img.shields.io/npm/v/on-events)](https://www.npmjs.com/package/on-events)
 [![downloads](https://img.shields.io/npm/dm/on-events)](https://www.npmjs.com/package/on-events)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/on-events)](https://bundlephobia.com/package/on-events)
-[![license](https://img.shields.io/npm/l/on-events)](https://github.com/iWhatty/on-event-js/blob/main/LICENSE)
-[![stars](https://img.shields.io/github/stars/iWhatty/on-event-js?style=social)](https://github.com/iWhatty/on-event-js)
+[![license](https://img.shields.io/npm/l/on-events)](https://github.com/iWhatty/on-events/blob/main/LICENSE)
+[![stars](https://img.shields.io/github/stars/iWhatty/on-events?style=social)](https://github.com/iWhatty/on-events)
+[![types](https://img.shields.io/npm/types/on-events)](https://www.npmjs.com/package/on-events)
 
 A tiny DOM event utility with composable sugar. Write clean event bindings using fluent chains like `On.click(...)`, `On.capture.passive.scroll(...)`, `On.first.delegate.click(...)`, or classic `on(el, 'click', fn)`.
 
