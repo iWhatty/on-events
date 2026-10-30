@@ -1,11 +1,10 @@
 # on-events
 
-[![npm](https://img.shields.io/npm/v/on-events)](https://www.npmjs.com/package/on-events)
-[![downloads](https://img.shields.io/npm/dm/on-events)](https://www.npmjs.com/package/on-events)
-[![bundle size](https://img.shields.io/bundlephobia/minzip/on-events)](https://bundlephobia.com/package/on-events)
-[![license](https://img.shields.io/npm/l/on-events)](https://github.com/iWhatty/on-events/blob/main/LICENSE)
-[![stars](https://img.shields.io/github/stars/iWhatty/on-events?style=social)](https://github.com/iWhatty/on-events)
-[![types](https://img.shields.io/npm/types/on-events)](https://www.npmjs.com/package/on-events)
+[![npm](https://badgen.net/npm/v/on-events)](https://www.npmjs.com/package/on-events)
+[![downloads](https://badgen.net/npm/dm/on-events)](https://www.npmjs.com/package/on-events)
+[![license](https://badgen.net/static/license/AGPL-3.0%20%2B%20terms/blue)](https://github.com/iWhatty/on-events/blob/main/LICENSE)
+[![stars](https://badgen.net/github/stars/iWhatty/on-events)](https://github.com/iWhatty/on-events)
+[![types](https://badgen.net/npm/types/on-events)](https://www.npmjs.com/package/on-events)
 
 A tiny DOM event utility with composable sugar. Write clean event bindings using fluent chains like `On.click(...)`, `On.capture.passive.scroll(...)`, `On.first.delegate.click(...)`, or classic `on(el, 'click', fn)`.
 
