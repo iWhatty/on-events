@@ -23,6 +23,6 @@ What changed for people using the package, per release. Entries before 0.0.6 wer
 
 - Improved type declarations.
 
-## 0.0.2 — 2026-02-23
+## 0.0.2 — 2026-02-24
 
 - First npm releases (0.0.1 and 0.0.2): `On.click(el, fn)` style binders with `first`, `once`, `capture`, `passive` and `delegate` modifiers, `batch()`, and the classic `on(...)` / `off(...)`.
