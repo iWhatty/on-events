@@ -42,6 +42,10 @@
     ],
     "author": "WATT3D <WATT3D@protonmail.com>",
     "license": "SEE LICENSE IN LICENSE",
+    "homepage": "https://github.com/iWhatty/on-events#readme",
+    "bugs": {
+        "url": "https://github.com/iWhatty/on-events/issues"
+    },
     "repository": {
         "type": "git",
         "url": "git+https://github.com/iWhatty/on-events.git"
