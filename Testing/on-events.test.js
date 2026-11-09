@@ -363,6 +363,120 @@ describe('on-events', () => {
     expect(() => stop()).not.toThrow()
   })
 
+  it.each(['once', 'abort', 'pre-aborted', 'delegated miss'])('releases the registry record after %s', (mode) => {
+    const controller = new window.AbortController()
+    const fn = vi.fn()
+    const registry = vi.spyOn(WeakMap.prototype, 'set')
+    let records
+    let store
+    let stop
+    try {
+      if (mode === 'pre-aborted') controller.abort()
+      const options = mode.includes('abort') ? { signal: controller.signal } : { once: true }
+      stop = mode === 'delegated miss'
+        ? on(document, 'registry-test', 'button', fn, options)
+        : on(document, 'registry-test', fn, options)
+      const index = registry.mock.calls.findIndex(([key, value]) => key === document && Array.isArray(value))
+      records = registry.mock.calls[index]?.[1]
+      store = registry.mock.contexts[index]
+    } finally {
+      registry.mockRestore()
+    }
+    try {
+      if (mode === 'abort') controller.abort()
+      else if (mode !== 'pre-aborted') document.dispatchEvent(new Event('registry-test'))
+      expect(records?.length || 0).toBe(0)
+      if (store) expect(store.has(document)).toBe(false)
+      expect(fn).toHaveBeenCalledTimes(mode === 'once' ? 1 : 0)
+    } finally {
+      stop()
+    }
+  })
+
+  it('releases a once record before calling a throwing handler', () => {
+    const error = new Error('handler failed')
+    const onError = (event) => event.preventDefault()
+    window.addEventListener('error', onError)
+    const registry = vi.spyOn(WeakMap.prototype, 'set')
+    let records
+    let recordsDuringCall
+    const fn = vi.fn(function () {
+      recordsDuringCall = records.length
+      throw error
+    })
+    const stop = on(document, 'registry-test', fn, { once: true })
+    records = registry.mock.calls.find(([key, value]) => key === document && Array.isArray(value))[1]
+    registry.mockRestore()
+    try {
+      document.dispatchEvent(new Event('registry-test'))
+      expect(fn).toHaveBeenCalledOnce()
+      expect(fn.mock.contexts[0]).toBe(document)
+      expect(recordsDuringCall).toBe(0)
+      expect(records).toHaveLength(0)
+    } finally {
+      stop()
+      window.removeEventListener('error', onError)
+    }
+  })
+
+  it.each([[false, true], [true, false], [true, true]])('preserves native duplicate options %s then %s', (first, second) => {
+    const fn = vi.fn()
+    const stop = on(child, 'click', fn, { once: first })
+    on(child, 'click', fn, { once: second })
+    child.click()
+    child.click()
+    expect(fn).toHaveBeenCalledTimes(first ? 1 : 2)
+    stop()
+  })
+
+  it('keeps other registrations when one capture phase completes', () => {
+    const fn = vi.fn()
+    const stop = on(el, 'click', fn, { once: true, capture: true })
+    on(el, 'click', fn)
+    child.click()
+    child.click()
+    expect(fn).toHaveBeenCalledTimes(3)
+    stop()
+  })
+
+  it('detaches abort cleanup on explicit removal and once completion', () => {
+    const controller = new AbortController()
+    const remove = vi.spyOn(controller.signal, 'removeEventListener')
+    const fn = vi.fn()
+    const stop = on(child, 'click', fn, { once: true, signal: controller.signal })
+    child.click()
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
+    const next = on(child, 'click', fn, { signal: controller.signal })
+    stop()
+    expect(remove).toHaveBeenCalledTimes(2)
+    controller.abort()
+    child.click()
+    expect(fn).toHaveBeenCalledOnce()
+    next()
+    remove.mockRestore()
+  })
+
+
+  it('allows a once handler to register itself again during dispatch', () => {
+    const fn = vi.fn(() => on(child, 'click', fn, { once: true }))
+    const stop = on(child, 'click', fn, { once: true })
+    child.click()
+    child.click()
+    expect(fn).toHaveBeenCalledTimes(2)
+    stop()
+  })
+
+  it('aborting one capture phase leaves the other registration active', () => {
+    const controller = new AbortController()
+    const fn = vi.fn()
+    const stop = on(el, 'click', fn, { signal: controller.signal, capture: true })
+    on(el, 'click', fn)
+    controller.abort()
+    child.click()
+    expect(fn).toHaveBeenCalledOnce()
+    stop()
+  })
+
   it('stop removes both capture phases for the same handler', () => {
     const fn = vi.fn()
     const stop = on(el, 'click', fn)

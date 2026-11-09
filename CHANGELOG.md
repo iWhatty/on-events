@@ -4,6 +4,7 @@ What changed for people using the package, per release. Entries before 0.0.6 wer
 
 ## Unreleased
 
+- Completed once listeners and aborted listeners release their internal handler records.
 - Boolean capture listeners are removed correctly by `stop()` and `off()`.
 - Group cleanup tracks all modifier depths and custom event binders.
 

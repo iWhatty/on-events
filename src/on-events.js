@@ -20,7 +20,11 @@ function baseOn(el, type, selector, cb, options) {
 
   const opts = options || undefined
 
-  const wrapped = selector
+  const capture = opts === true || !!(opts && opts.capture)
+  // Reuse direct wrappers so native duplicate registration semantics stay intact.
+  const existing = !selector && listeners.get(el)?.find((h) =>
+    h.type === type && h.cb === cb && !h.selector && h.capture === capture)
+  const handler = selector
     ? (e) => {
       // Delegation can receive a Text node as the event target.
       // Normalize that to an element before calling closest().
@@ -37,20 +41,38 @@ function baseOn(el, type, selector, cb, options) {
     }
     : cb
 
+  const record = { type, cb, selector, capture, signal: opts && opts.signal }
+  const cleanup = () => removeRecord(el, record)
+  const wrapped = existing ? existing.wrapped : opts && opts.once
+    ? function (e) {
+      // Native once is consumed even when delegation misses or the handler throws.
+      cleanup()
+      handler.call(this, e)
+    }
+    : handler
+  record.wrapped = wrapped
+  record.cleanup = cleanup
+
   el.addEventListener(type, wrapped, opts)
+  if (existing || record.signal?.aborted) return () => off(el, type, cb, selector)
 
   if (!listeners.has(el)) listeners.set(el, [])
   const group = listeners.get(el)
 
-  group.push({
-    type,
-    cb,
-    selector,
-    wrapped,
-    capture: opts === true || !!(opts && opts.capture), // capture must match during removal
-  })
+  group.push(record)
+  record.signal?.addEventListener('abort', cleanup, { once: true })
 
   return () => off(el, type, cb, selector)
+}
+
+function removeRecord(el, record) {
+  const group = listeners.get(el)
+  const index = group ? group.indexOf(record) : -1
+  if (index < 0) return
+  el.removeEventListener(record.type, record.wrapped, { capture: record.capture })
+  record.signal?.removeEventListener('abort', record.cleanup)
+  group.splice(index, 1)
+  if (!group.length) listeners.delete(el)
 }
 
 function off(el, type, cb, selector = null) {
@@ -65,13 +87,9 @@ function off(el, type, cb, selector = null) {
       (selector ? h.selector === selector : !h.selector)
 
     if (match) {
-      // removeEventListener only cares about capture on teardown.
-      el.removeEventListener(type, h.wrapped, { capture: h.capture })
-      group.splice(i, 1)
+      removeRecord(el, h)
     }
   }
-
-  if (!group.length) listeners.delete(el)
 }
 
 // --- composable sugar: On.<mods>.<event>(...) ---
