@@ -91,6 +91,8 @@ On.delegate.click(root, 'a', fn)
 On.first.capture.passive.touchstart(el, fn)
 ```
 
+With delegation, `first` / `once` is consumed by the first event reaching the root, even if its target does not match the selector.
+
 ### `On.hover(el, enterFn, leaveFn)`
 
 Convenience wrapper for `mouseenter` and `mouseleave`. Returns a single `stop()` function.
@@ -148,7 +150,7 @@ On.first.batch(document, {
 
 ### `On.ready(fn)`
 
-Runs `fn` once the DOM is fully loaded (`DOMContentLoaded` or already ready).
+Runs `fn` at `DOMContentLoaded` while the document is loading, or immediately if it is already interactive or complete. Returns `undefined`; it has no cleanup handle and is a no-op without `document`. Grouped `ready` callbacks are not cancelled by `group.stop()`.
 
 ```js
 On.ready(function handleReady() {
@@ -221,9 +223,9 @@ Signatures:
 - `on(el, event, handler, options)`
 - `on(el, event, selector, handler)` for delegated events
 - `on(el, event, selector, handler, options)`
-- `off(el, event, handler, [selector])` removes a previously added listener
+- `off(el, event, handler, [selector])` removes all matching registrations
 
-Adds a standard or delegated event listener. Returns a `stop()` function that removes the listener.
+Adds a standard or delegated event listener. Options accept a boolean capture flag or an `AddEventListenerOptions` object. Returns a `stop()` function that removes all registrations with the same element, event, handler, and selector, including both capture phases.
 
 ---
 
@@ -256,7 +258,7 @@ Rule of thumb: delegate `click`, `input`, and `submit`; bind directly for high-f
 - Delegation uses `Element.closest()` internally.
 - In delegated handlers, `this` refers to the matched element.
 - Modern browsers only (uses `Proxy`, `WeakMap`, and modern DOM APIs).
-- All binding methods return a `stop()` function for explicit cleanup.
+- Listener binders return a `stop()` function for explicit cleanup; `On.ready(fn)` returns `undefined`.
 
 ### Legacy alias
 

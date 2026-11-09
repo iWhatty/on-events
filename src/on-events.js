@@ -47,7 +47,7 @@ function baseOn(el, type, selector, cb, options) {
     cb,
     selector,
     wrapped,
-    capture: !!(opts && opts.capture), // capture must match during removal
+    capture: opts === true || !!(opts && opts.capture), // capture must match during removal
   })
 
   return () => off(el, type, cb, selector)
@@ -215,13 +215,13 @@ On.group = function group() {
     }
   }
 
-  return new Proxy(Object.create(null), {
+  const collect = (source) => new Proxy(Object.create(null), {
     get(_target, prop) {
       // Hard override these names so they never fall through into event binding.
-      if (prop === 'add') return track
-      if (prop === 'stop') return stopAll
+      if (source === On && prop === 'add') return track
+      if (source === On && prop === 'stop') return stopAll
 
-      const value = On[prop]
+      const value = source[prop]
       if (value == null) return value
 
       // event(type) is a factory: it returns a binder, not a stop handle.
@@ -239,21 +239,12 @@ On.group = function group() {
         return (...args) => track(value(...args))
       }
 
-      // Nested chain objects like group.capture or group.delegate are proxies too.
-      // Wrap their callable leaves so group.capture.click(...) also tracks cleanup.
-      return new Proxy(value, {
-        get(_nestedTarget, nestedProp) {
-          const nestedValue = value[nestedProp]
-
-          if (typeof nestedValue === 'function') {
-            return (...args) => track(nestedValue(...args))
-          }
-
-          return nestedValue
-        },
-      })
+      // Track callable leaves at every depth of a modifier chain.
+      return collect(value)
     },
   })
+
+  return collect(On)
 }
 
 // --- legacy alias for backward compatibility ---

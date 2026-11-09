@@ -2,6 +2,11 @@
 
 What changed for people using the package, per release. Entries before 0.0.6 were reconstructed from git history.
 
+## Unreleased
+
+- Boolean capture listeners are removed correctly by `stop()` and `off()`.
+- Group cleanup tracks all modifier depths and custom event binders.
+
 ## 0.0.6 — 2026-11-02
 
 - Declares Node 18 or later in `engines`.

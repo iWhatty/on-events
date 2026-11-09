@@ -1,10 +1,6 @@
 // build.js
 import { build } from 'esbuild'
 import { mkdir, copyFile } from 'fs/promises'
-import { dirname } from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 async function run() {
   try {
