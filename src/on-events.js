@@ -4,91 +4,65 @@
 // --- internal base ---
 const listeners = new WeakMap()
 
-/**
- * baseOn(el, type, handler)
- * baseOn(el, type, selector, handler)
- * baseOn(el, type, handler, options)
- * baseOn(el, type, selector, handler, options)
- */
-function baseOn(el, type, selector, cb, options) {
-  // Normalize overloaded signatures so everything below can use one path.
-  if (typeof selector === 'function') {
-    options = cb
-    cb = selector
-    selector = null
+const noop = () => {}
+
+// Every API path ends here. Each registration owns its listener and cleanup.
+function bind(el, type, selector, cb, options, scope) {
+  if (typeof cb !== 'function') throw new TypeError('Expected an event handler function')
+
+  const opts = typeof options === 'boolean' ? { capture: options } : options || {}
+  const capture = !!opts.capture
+  const once = !!opts.once
+  const passive = opts.passive
+  const signal = opts.signal
+  if (signal?.aborted) return noop
+
+  let active = true
+  const record = { type, cb, selector, stop }
+
+  function stop() {
+    if (!active) return
+    active = false
+    el.removeEventListener(type, wrapped, capture)
+    signal?.removeEventListener('abort', stop)
+    const records = listeners.get(el)
+    records?.delete(record)
+    if (records?.size === 0) listeners.delete(el)
+    scope?.delete(stop)
   }
 
-  const opts = options || undefined
-
-  const capture = opts === true || !!(opts && opts.capture)
-  // Reuse direct wrappers so native duplicate registration semantics stay intact.
-  const existing = !selector && listeners.get(el)?.find((h) =>
-    h.type === type && h.cb === cb && !h.selector && h.capture === capture)
-  const handler = selector
-    ? (e) => {
-      // Delegation can receive a Text node as the event target.
-      // Normalize that to an element before calling closest().
-      const target = e.target instanceof Element ? e.target : e.target?.parentElement
-      if (!target) return
-
-      const match = target.closest(selector)
-      if (!match) return
-
-      // Guard delegated matching so odd targets like window do not explode.
-      if (typeof el.contains === 'function' && el.contains(match)) {
-        cb.call(match, e)
-      }
+  function wrapped(event) {
+    let context = this
+    if (selector !== null) {
+      // Text nodes and elements from other windows are valid delegated targets.
+      const target = event.target?.nodeType === 1 ? event.target : event.target?.parentElement
+      context = target?.closest(selector)
+      if (!context || typeof el.contains !== 'function' || !el.contains(context)) return
     }
-    : cb
 
-  const record = { type, cb, selector, capture, signal: opts && opts.signal }
-  const cleanup = () => removeRecord(el, record)
-  const wrapped = existing ? existing.wrapped : opts && opts.once
-    ? function (e) {
-      // Native once is consumed even when delegation misses or the handler throws.
-      cleanup()
-      handler.call(this, e)
-    }
-    : handler
-  record.wrapped = wrapped
-  record.cleanup = cleanup
+    // Remove before invoking user code, including reentrant dispatches.
+    // Delegated once listeners expire only after a selector match.
+    if (once) stop()
+    cb.call(context, event)
+  }
 
-  el.addEventListener(type, wrapped, opts)
-  if (existing || record.signal?.aborted) return () => off(el, type, cb, selector)
-
-  if (!listeners.has(el)) listeners.set(el, [])
-  const group = listeners.get(el)
-
-  group.push(record)
-  record.signal?.addEventListener('abort', cleanup, { once: true })
-
-  return () => off(el, type, cb, selector)
-}
-
-function removeRecord(el, record) {
-  const group = listeners.get(el)
-  const index = group ? group.indexOf(record) : -1
-  if (index < 0) return
-  el.removeEventListener(record.type, record.wrapped, { capture: record.capture })
-  record.signal?.removeEventListener('abort', record.cleanup)
-  group.splice(index, 1)
-  if (!group.length) listeners.delete(el)
+  // Preserve inherited option fields and the browser's default passive policy.
+  const nativeOptions = { capture, signal, once: false }
+  if (passive !== undefined) nativeOptions.passive = passive
+  el.addEventListener(type, wrapped, nativeOptions)
+  if (!listeners.has(el)) listeners.set(el, new Set())
+  listeners.get(el).add(record)
+  scope?.add(stop)
+  signal?.addEventListener('abort', stop, { once: true })
+  return stop
 }
 
 function off(el, type, cb, selector = null) {
-  const group = listeners.get(el)
-  if (!group) return
-
-  for (let i = group.length; i-- > 0;) {
-    const h = group[i]
-    const match =
-      h.type === type &&
-      h.cb === cb &&
-      (selector ? h.selector === selector : !h.selector)
-
-    if (match) {
-      removeRecord(el, h)
-    }
+  const records = listeners.get(el)
+  if (!records) return
+  // Explicit off() keeps its broad matching semantics; stop handles are exact.
+  for (const record of records) {
+    if (record.type === type && record.cb === cb && record.selector === selector) record.stop()
   }
 }
 
@@ -111,12 +85,17 @@ const optsFor = (f) => {
   return o
 }
 
-const makeOn = (flags = 0) =>
+// Explicit event names never pass through the fluent proxy's helper lookup.
+const eventBinder = (type, flags, scope) => (el, ...args) => {
+  const delegated = !!(flags & DELEGATE)
+  return bind(el, type, delegated ? args[0] : null, args[delegated ? 1 : 0], optsFor(flags), scope)
+}
+
+const makeOn = (flags = 0, scope) =>
   new Proxy(Object.create(null), {
     get(target, prop) {
       // Respect concrete properties assigned directly onto the proxy target.
-      // This is what makes late-added members like On.group work instead of
-      // being mistaken for an event name.
+      // Root controls like group/add/stop do not propagate into modifier chains.
       if (Reflect.has(target, prop)) {
         return Reflect.get(target, prop)
       }
@@ -124,22 +103,22 @@ const makeOn = (flags = 0) =>
       const k = String(prop)
 
       // Modifier chaining accumulates flags and returns a fresh proxy.
-      if (k === 'first' || k === 'once') return makeOn(flags | ONCE)
-      if (k === 'capture') return makeOn(flags | CAPTURE)
-      if (k === 'passive') return makeOn(flags | PASSIVE)
-      if (k === 'delegate') return makeOn(flags | DELEGATE)
+      if (k === 'first' || k === 'once') return makeOn(flags | ONCE, scope)
+      if (k === 'capture') return makeOn(flags | CAPTURE, scope)
+      if (k === 'passive') return makeOn(flags | PASSIVE, scope)
+      if (k === 'delegate') return makeOn(flags | DELEGATE, scope)
 
       // Custom event helper: On.event('panel:open')(el, fn)
       if (k === 'event') {
-        return (type) => makeOn(flags)[type]
+        return (type) => eventBinder(type, flags, scope)
       }
 
       // Utilities live on the same fluent surface for ergonomics.
       if (k === 'hover') {
         return (el, enter, leave) => {
           const o = optsFor(flags)
-          const offIn = baseOn(el, 'mouseenter', enter, o)
-          const offOut = baseOn(el, 'mouseleave', leave, o)
+          const offIn = bind(el, 'mouseenter', null, enter, o, scope)
+          const offOut = bind(el, 'mouseleave', null, leave, o, scope)
           return () => {
             offIn()
             offOut()
@@ -154,14 +133,14 @@ const makeOn = (flags = 0) =>
           for (const [event, val] of Object.entries(map)) {
             // Direct entry: { click: fn }
             if (typeof val === 'function') {
-              stops.push(makeOn(flags)[event](el, val))
+              stops.push(eventBinder(event, flags & ~DELEGATE, scope)(el, val))
               continue
             }
 
             // Delegated entry: { click: ['a', fn] }
             if (Array.isArray(val)) {
               const [selector, fn] = val
-              stops.push(makeOn(flags | DELEGATE)[event](el, selector, fn))
+              stops.push(eventBinder(event, flags | DELEGATE, scope)(el, selector, fn))
             }
           }
 
@@ -173,51 +152,47 @@ const makeOn = (flags = 0) =>
 
       if (k === 'ready') {
         return (fn) => {
-          if (typeof document === 'undefined') return
+          if (typeof document === 'undefined') return noop
 
           // Run immediately if the DOM is already ready.
           if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', fn, { once: true })
-          } else {
-            fn()
+            return bind(document, 'DOMContentLoaded', null, fn, { once: true }, scope)
           }
+          fn()
+          return noop
         }
       }
 
       // Default path: treat the property name as the event type.
-      return (el, ...args) => {
-        const o = optsFor(flags)
-
-        if (flags & DELEGATE) {
-          const [selector, handler] = args
-          return baseOn(el, k, selector, handler, o)
-        }
-
-        const [handler] = args
-        return baseOn(el, k, handler, o)
-      }
+      return eventBinder(k, flags, scope)
     },
   })
 
 const On = makeOn()
 
 // Creates a scoped listener collector.
-// Any stop() returned by On.* calls is tracked and can be removed together via group.stop().
+// Bindings created through this surface share one cleanup scope.
 On.group = function group() {
   const stops = new Set()
+  const scoped = makeOn(0, stops)
+  let stopping = false
 
-  const track = (stop) => {
+  scoped.add = (stop) => {
     // Pass through nullish / false values so callers can safely write:
     // group.add(maybeElement ? On.click(...) : null)
     if (typeof stop === 'function') stops.add(stop)
     return stop
   }
 
-  const stopAll = () => {
+  scoped.stop = () => {
+    if (stopping) return
+    stopping = true
     const errors = []
+    const pending = [...stops]
+    stops.clear()
 
     // Try every tracked cleanup so one bad stop() does not block the rest.
-    for (const stop of stops) {
+    for (const stop of pending) {
       try {
         stop()
       } catch (err) {
@@ -225,7 +200,7 @@ On.group = function group() {
       }
     }
 
-    stops.clear()
+    stopping = false
 
     if (errors.length === 1) throw errors[0]
     if (errors.length > 1) {
@@ -233,42 +208,18 @@ On.group = function group() {
     }
   }
 
-  const collect = (source) => new Proxy(Object.create(null), {
-    get(_target, prop) {
-      // Hard override these names so they never fall through into event binding.
-      if (source === On && prop === 'add') return track
-      if (source === On && prop === 'stop') return stopAll
-
-      const value = source[prop]
-      if (value == null) return value
-
-      // event(type) is a factory: it returns a binder, not a stop handle.
-      // Wrap the binder so the eventual stop() is what gets tracked.
-      if (prop === 'event') {
-        return (type) => {
-          const binder = value(type)
-          return (...args) => track(binder(...args))
-        }
-      }
-
-      // Top-level callables like group.click(...), group.batch(...), group.ready(...)
-      // are wrapped so any returned stop() is automatically tracked.
-      if (typeof value === 'function') {
-        return (...args) => track(value(...args))
-      }
-
-      // Track callable leaves at every depth of a modifier chain.
-      return collect(value)
-    },
-  })
-
-  return collect(On)
+  return scoped
 }
 
 // --- legacy alias for backward compatibility ---
 On.once = On.first
 
 // --- classic support ---
-const on = (el, event, ...args) => baseOn(el, event, ...args)
+function on(el, type, selector, cb, options) {
+  if (typeof selector === 'function') {
+    return bind(el, type, null, selector, cb)
+  }
+  return bind(el, type, selector, cb, options)
+}
 
 export { on, On, off }

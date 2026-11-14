@@ -44,19 +44,19 @@ export function off<E extends Event = Event>(
 
 // --- Fluent Event Binder ---
 
-export interface EventBinder<E extends Event = Event> {
-  (el: EventTarget, handler: DirectHandler<E>): Stop
-  (el: Element | Document, selector: string, handler: Handler<E>): Stop
-}
+export type EventBinder<E extends Event = Event, Delegated extends boolean = false> =
+  Delegated extends true
+    ? (el: Element | Document, selector: string, handler: Handler<E>) => Stop
+    : (el: EventTarget, handler: DirectHandler<E>) => Stop
 
 // --- Fluent Chain API core ---
 
-export interface OnChain {
-  first: OnChain
-  once: OnChain
-  capture: OnChain
-  passive: OnChain
-  delegate: OnChain
+interface ChainModifiers<Delegated extends boolean> {
+  first: OnChain<Delegated>
+  once: OnChain<Delegated>
+  capture: OnChain<Delegated>
+  passive: OnChain<Delegated>
+  delegate: OnChain<true>
 
   hover(
     el: Element,
@@ -69,33 +69,27 @@ export interface OnChain {
     map: BatchMap
   ): Stop
 
-  ready(fn: () => void): void
+  ready(fn: () => void): Stop
 
-  group(): OnGroup
-
-  <E extends Event = Event>(
-    el: EventTarget,
-    handler: DirectHandler<E>
-  ): Stop
-
-  <E extends Event = Event>(
-    el: Element | Document,
-    selector: string,
-    handler: Handler<E>
-  ): Stop
-
-  // fallback for custom / non-standard event names
-  event(type: string): OnChain & EventBinder<Event>
+  event<K extends keyof GlobalEventHandlersEventMap>(
+    type: K
+  ): EventBinder<GlobalEventHandlersEventMap[K], Delegated>
+  event<E extends Event = Event>(type: string): EventBinder<E, Delegated>
 }
 
-export type OnEventMap = {
+export type OnEventMap<Delegated extends boolean = false> = {
   [K in keyof GlobalEventHandlersEventMap]:
-    OnChain & EventBinder<GlobalEventHandlersEventMap[K]>
+    EventBinder<GlobalEventHandlersEventMap[K], Delegated>
 }
 
-export type OnAPI = OnChain & OnEventMap
+export type OnChain<Delegated extends boolean = false> =
+  ChainModifiers<Delegated> & OnEventMap<Delegated>
 
-export type OnGroup = OnAPI & {
+export type OnAPI = OnChain & {
+  group(): OnGroup
+}
+
+export type OnGroup = OnChain & {
   stop(): void
   add<T extends Stop | null | undefined | false>(stop: T): T
 }

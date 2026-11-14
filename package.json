@@ -1,6 +1,6 @@
 {
     "name": "on-events",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "description": "Tiny DOM event utility with composable sugar, delegation, and cleanup.",
     "type": "module",
     "sideEffects": false,
@@ -53,14 +53,17 @@
     "scripts": {
         "test": "vitest",
         "test:run": "vitest run",
+        "test:types": "tsc -p Testing/tsconfig.json",
+        "test:min": "npm run build && vitest run --config Testing/vitest.min.config.js",
         "test:ui": "vitest --ui",
         "test:watch": "vitest --watch",
         "build": "node build.js",
-        "prepublishOnly": "npm run build && npm run test:run"
+        "prepublishOnly": "npm run test:run && npm run test:min && npm run test:types"
     },
     "devDependencies": {
         "esbuild": "^0.25.3",
         "jsdom": "^28.1.0",
+        "typescript": "^5.9.3",
         "vitest": "^4.0.18"
     }
 }

@@ -4,9 +4,19 @@ What changed for people using the package, per release. Entries before 0.0.6 wer
 
 ## Unreleased
 
-- Completed once listeners and aborted listeners release their internal handler records.
-- Boolean capture listeners are removed correctly by `stop()` and `off()`.
-- Group cleanup tracks all modifier depths and custom event binders.
+## 0.0.7 — 2026-11-13
+
+- Fixed `On.group().stop()` leaving listeners attached when registered through two or more modifiers, such as `group.capture.passive.scroll(...)`.
+- Unified classic, fluent, custom-event, batch, hover, and ready bindings behind one registration layer, with group scope carried through every modifier chain.
+- Made stop handles idempotent and specific to one registration, preventing shared callbacks and stale handles from removing other listeners. Repeated binding calls now create independent registrations; explicit `off()` still removes all matching registrations.
+- Fixed boolean capture options so captured listeners are removed correctly.
+- Fixed grouped custom-event factories after modifiers, and allowed explicit custom-event names and batch keys to match fluent helper names.
+- Fixed delegated `first` / `once` listeners being consumed by unrelated events; cleanup occurs before the first matching callback, including reentrant dispatches.
+- Released listener records, group entries, and abort hooks when listeners stop, fire once, or are aborted; already-aborted signals create no registration.
+- Made `On.ready()` return a stop handle so pending callbacks can be cancelled directly or through a group.
+- Reworked TypeScript declarations to retain event inference through modifier chains, distinguish direct and delegated binders, and reject unsupported calls and chaining.
+- Added lifecycle regression tests and a repeatable TypeScript check, included in prepublish validation.
+- Synchronized the package manifest and lockfile versions.
 
 ## 0.0.6 — 2026-11-02
 

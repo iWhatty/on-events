@@ -207,7 +207,6 @@ describe('on-events', () => {
   })
 
 
-
   it.each([false, true])('removes listeners with boolean capture %s', (capture) => {
     const fn = vi.fn()
     const stop = on(el, 'click', fn, capture)
@@ -294,12 +293,14 @@ describe('on-events', () => {
     stopOutside()
   })
 
-  it('consumes delegated once listeners on the first event, even without a match', () => {
+  it('consumes delegated once listeners on the first matching event', () => {
     const fn = vi.fn()
     const stop = On.first.delegate.click(el, 'button', fn)
     el.click()
     child.click()
-    expect(fn).not.toHaveBeenCalled()
+    expect(fn).toHaveBeenCalledOnce()
+    child.click()
+    expect(fn).toHaveBeenCalledOnce()
     stop()
   })
 
@@ -307,7 +308,7 @@ describe('on-events', () => {
     const readyState = vi.spyOn(document, 'readyState', 'get').mockReturnValue(state)
     const fn = vi.fn()
     try {
-      expect(On.ready(fn)).toBeUndefined()
+      expect(On.ready(fn)).toBeTypeOf('function')
       if (state === 'loading') expect(fn).not.toHaveBeenCalled()
       else expect(fn).toHaveBeenCalledOnce()
       document.dispatchEvent(new Event('DOMContentLoaded'))
@@ -322,7 +323,7 @@ describe('on-events', () => {
     const fn = vi.fn()
     vi.stubGlobal('document', undefined)
     try {
-      expect(On.ready(fn)).toBeUndefined()
+      expect(On.ready(fn)).toBeTypeOf('function')
       expect(fn).not.toHaveBeenCalled()
     } finally {
       vi.unstubAllGlobals()
@@ -376,18 +377,24 @@ describe('on-events', () => {
       stop = mode === 'delegated miss'
         ? on(document, 'registry-test', 'button', fn, options)
         : on(document, 'registry-test', fn, options)
-      const index = registry.mock.calls.findIndex(([key, value]) => key === document && Array.isArray(value))
+      const index = registry.mock.calls.findIndex(([key, value]) => key === document && value instanceof Set)
       records = registry.mock.calls[index]?.[1]
       store = registry.mock.contexts[index]
+      if (mode !== 'pre-aborted') expect(records?.size).toBe(1)
     } finally {
       registry.mockRestore()
     }
     try {
       if (mode === 'abort') controller.abort()
       else if (mode !== 'pre-aborted') document.dispatchEvent(new Event('registry-test'))
-      expect(records?.length || 0).toBe(0)
+      if (mode === 'delegated miss') {
+        expect(fn).not.toHaveBeenCalled()
+        expect(records.size).toBe(1)
+        child.dispatchEvent(new Event('registry-test', { bubbles: true }))
+      }
+      expect(records?.size || 0).toBe(0)
       if (store) expect(store.has(document)).toBe(false)
-      expect(fn).toHaveBeenCalledTimes(mode === 'once' ? 1 : 0)
+      expect(fn).toHaveBeenCalledTimes(mode === 'once' || mode === 'delegated miss' ? 1 : 0)
     } finally {
       stop()
     }
@@ -401,32 +408,33 @@ describe('on-events', () => {
     let records
     let recordsDuringCall
     const fn = vi.fn(function () {
-      recordsDuringCall = records.length
+      recordsDuringCall = records.size
       throw error
     })
     const stop = on(document, 'registry-test', fn, { once: true })
-    records = registry.mock.calls.find(([key, value]) => key === document && Array.isArray(value))[1]
+    records = registry.mock.calls.find(([key, value]) => key === document && value instanceof Set)[1]
     registry.mockRestore()
     try {
       document.dispatchEvent(new Event('registry-test'))
       expect(fn).toHaveBeenCalledOnce()
       expect(fn.mock.contexts[0]).toBe(document)
       expect(recordsDuringCall).toBe(0)
-      expect(records).toHaveLength(0)
+      expect(records.size).toBe(0)
     } finally {
       stop()
       window.removeEventListener('error', onError)
     }
   })
 
-  it.each([[false, true], [true, false], [true, true]])('preserves native duplicate options %s then %s', (first, second) => {
+  it.each([[false, true], [true, false], [true, true]])('keeps duplicate binding options independent: once=%s then %s', (first, second) => {
     const fn = vi.fn()
     const stop = on(child, 'click', fn, { once: first })
-    on(child, 'click', fn, { once: second })
+    const next = on(child, 'click', fn, { once: second })
     child.click()
     child.click()
-    expect(fn).toHaveBeenCalledTimes(first ? 1 : 2)
+    expect(fn).toHaveBeenCalledTimes((first ? 1 : 2) + (second ? 1 : 2))
     stop()
+    next()
   })
 
   it('keeps other registrations when one capture phase completes', () => {
@@ -448,8 +456,9 @@ describe('on-events', () => {
     expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
     const next = on(child, 'click', fn, { signal: controller.signal })
     stop()
-    expect(remove).toHaveBeenCalledTimes(2)
+    expect(remove).toHaveBeenCalledTimes(1)
     controller.abort()
+    expect(remove).toHaveBeenCalledTimes(2)
     child.click()
     expect(fn).toHaveBeenCalledOnce()
     next()
@@ -477,14 +486,48 @@ describe('on-events', () => {
     stop()
   })
 
-  it('stop removes both capture phases for the same handler', () => {
+  it('stop removes only its own capture phase for the same handler', () => {
     const fn = vi.fn()
     const stop = on(el, 'click', fn)
-    on(el, 'click', fn, { capture: true })
+    const stopCapture = on(el, 'click', fn, { capture: true })
     child.click()
     expect(fn).toHaveBeenCalledTimes(2)
     stop()
     child.click()
-    expect(fn).toHaveBeenCalledTimes(2)
+    expect(fn).toHaveBeenCalledTimes(3)
+    stopCapture()
+    child.click()
+    expect(fn).toHaveBeenCalledTimes(3)
   })
+
+  it('cleans up grouped listeners two modifiers deep', () => {
+    const fn = vi.fn()
+    const group = On.group()
+    group.capture.passive.scroll(child, fn)
+
+    child.dispatchEvent(new Event('scroll'))
+    expect(fn).toHaveBeenCalledOnce()
+
+    group.stop()
+
+    child.dispatchEvent(new Event('scroll'))
+    expect(fn).toHaveBeenCalledOnce()
+  })
+
+  it('cleans up grouped delegated listeners three modifiers deep', () => {
+    const fn = vi.fn()
+    const group = On.group()
+
+    group.capture.passive.delegate.scroll(el, 'button', fn)
+
+    child.dispatchEvent(new Event('scroll', { bubbles: true }))
+    expect(fn).toHaveBeenCalledOnce()
+
+    group.stop()
+
+    child.dispatchEvent(new Event('scroll', { bubbles: true }))
+    expect(fn).toHaveBeenCalledOnce()
+  })
+
+
 })

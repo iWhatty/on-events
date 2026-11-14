@@ -83,6 +83,8 @@ Available modifiers:
 - `passive` → `{ passive: true }`
 - `delegate` → enables delegated signature `(el, selector, handler)`
 
+With delegation, `first` / `once` waits for the first event matching the selector. Unrelated events do not consume the listener.
+
 ```js
 On.first.click(el, fn)
 On.capture.scroll(window, fn)
@@ -90,8 +92,6 @@ On.passive.wheel(el, fn)
 On.delegate.click(root, 'a', fn)
 On.first.capture.passive.touchstart(el, fn)
 ```
-
-With delegation, `first` / `once` is consumed by the first event reaching the root, even if its target does not match the selector.
 
 ### `On.hover(el, enterFn, leaveFn)`
 
@@ -150,10 +150,10 @@ On.first.batch(document, {
 
 ### `On.ready(fn)`
 
-Runs `fn` at `DOMContentLoaded` while the document is loading, or immediately if it is already interactive or complete. Returns `undefined`; it has no cleanup handle and is a no-op without `document`. Grouped `ready` callbacks are not cancelled by `group.stop()`.
+Runs `fn` at `DOMContentLoaded` while the document is loading, or immediately if it is already interactive or complete. Returns a `stop()` handle that cancels a pending callback. If the DOM is already ready or `document` is unavailable, the returned handle is a no-op. Without `document`, the callback does not run.
 
 ```js
-On.ready(function handleReady() {
+const stopReady = On.ready(function handleReady() {
   console.log('DOM fully loaded')
 })
 ```
@@ -161,6 +161,8 @@ On.ready(function handleReady() {
 ### `On.group()`
 
 Creates a scoped cleanup collector for related listeners. Useful when a page, modal, or UI module binds listeners across multiple elements and wants one teardown call.
+
+Modifier chains, custom events, batches, hover listeners, and pending ready callbacks all share the group's cleanup scope. A group can be reused after `stop()`.
 
 ```js
 import { On } from 'on-events'
@@ -225,7 +227,11 @@ Signatures:
 - `on(el, event, selector, handler, options)`
 - `off(el, event, handler, [selector])` removes all matching registrations
 
-Adds a standard or delegated event listener. Options accept a boolean capture flag or an `AddEventListenerOptions` object. Returns a `stop()` function that removes all registrations with the same element, event, handler, and selector, including both capture phases.
+Adds a standard or delegated event listener. Returns a `stop()` function that removes that registration.
+
+Each binding call creates an independent registration, including calls that reuse the same handler. Its stop handle is idempotent and removes only that registration. Explicit `off()` removes all matching registrations for the target, event, handler, and selector, across capture modes.
+
+The classic `on()` options accept a boolean capture flag or an `AddEventListenerOptions` object, including `signal` for cancellation with an `AbortController`.
 
 ---
 
@@ -247,8 +253,8 @@ Adds a standard or delegated event listener. Options accept a boolean capture fl
 
 This library is a thin wrapper around native `addEventListener`.
 
-- **Direct binding** (`On.click(el, fn)` / `on(el, 'click', fn)`): essentially zero runtime overhead beyond one extra function call during setup.
-- **`first` / `capture` / `passive`**: uses native listener options.
+- **Direct binding** (`On.click(el, fn)` / `on(el, 'click', fn)`): uses a small wrapper per registration to preserve independent cleanup and the native handler context.
+- **`capture` / `passive`**: uses native listener options. **`first` / `once`**: removes the registration before the matching callback and releases its cleanup records.
 - **Delegation** (`On.delegate.*`): performs a `closest(selector)` lookup per event. Ideal for reducing listener count, but direct binding is better for extremely hot events like `mousemove`.
 
 Rule of thumb: delegate `click`, `input`, and `submit`; bind directly for high-frequency events.
@@ -258,7 +264,7 @@ Rule of thumb: delegate `click`, `input`, and `submit`; bind directly for high-f
 - Delegation uses `Element.closest()` internally.
 - In delegated handlers, `this` refers to the matched element.
 - Modern browsers only (uses `Proxy`, `WeakMap`, and modern DOM APIs).
-- Listener binders return a `stop()` function for explicit cleanup; `On.ready(fn)` returns `undefined`.
+- Listener binders, including `On.ready(fn)`, return a `stop()` function for explicit cleanup.
 
 ### Legacy alias
 
