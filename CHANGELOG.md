@@ -6,6 +6,7 @@ What changed for people using the package, per release. Entries before 0.0.6 wer
 
 ## 0.0.8 — 2026-11-16
 
+- Documented the fluent API's property-renaming compiler limitation and an explicit `on()` + `group.add()` cleanup recipe, verified with Closure Compiler `20260422.0.0` ADVANCED against the `0.0.8` source. Quoted properties and `on-events/min` alone do not guarantee preservation through a full build pipeline; broader compiler support is deferred to `0.0.9`.
 - Fixed captured listener cleanup on native Node.js `EventTarget` by using the options-object removal form. Individual stops, grouped stops, `off()`, and captured once listeners now remove their actual registrations on Node 24.11.1 as well as DOM targets.
 - Added a dependency-free native Node regression lane for both source and minified exports, included in prepublish validation alongside the DOM and TypeScript suites. All 36 native checks passed on Node 18.20.8, 20.20.2, 22.23.5, 24.11.1, and 26.13.1.
 - Documented native Node target support and a mixed classic/fluent group recipe for passive observers plus an explicitly non-passive capture listener.

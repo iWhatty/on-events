@@ -34,6 +34,8 @@ pnpm add on-events
 
 As of 0.0.5 the default entry routes bundlers at ESM source so unused exports can be tree-shaken; pre-built minified bundle remains available via the `on-events/min` subpath for unbundled `<script type="module">` use.
 
+**Property-renaming compilers:** fluent event and modifier names must be preserved. With Closure Compiler ADVANCED or other property-mangling pipelines, use the [explicit `on()` + `group.add()` recipe](#property-renaming-compilers) unless your complete build preserves those names.
+
 ---
 
 ## Quick start
@@ -300,6 +302,29 @@ The classic `on()` options accept a boolean capture flag or an `AddEventListener
 ---
 
 ## Notes
+
+### Property-renaming compilers
+
+The fluent API reads property names at runtime through a `Proxy`. A compiler that renames `listeners.capture.pointerdown(...)` can change the event name to a shortened property such as `'h'`, silently binding the wrong event. Modifier and helper names also need preservation. See [Closure Compiler's restrictions on property renaming](https://developers.google.com/closure/compiler/docs/limitations).
+
+For builds that rename properties, use explicit event-name strings with classic `on()` and collect the returned stop handles with `group.add()`:
+
+```js
+import { on, On } from 'on-events'
+
+const listeners = On.group()
+listeners.add(on(document, 'pointerdown', handlePointerDown, { capture: true }))
+listeners.add(on(document, 'pointerup', handlePointerUp))
+
+// Controller destruction removes both registrations:
+listeners.stop()
+```
+
+This keeps event names in strings and listener options in the native options object, while retaining grouped cleanup. The stop handles returned by `on()` are idempotent, so they are safe to pass to `group.add()`.
+
+The explicit binding pattern was verified with the `0.0.8` source and consumer compiled together using Closure Compiler `20260422.0.0`, ADVANCED mode, and the BROWSER environment. Compatibility with arbitrary property-renaming configurations is not guaranteed; verify event names, options, callbacks, and cleanup in your final bundle. Preserve native option keys and any public properties crossing separately compiled boundaries.
+
+Quoting fluent properties alone is not a reliable workaround: an earlier bundler stage can rewrite quoted access before property renaming runs. Importing `on-events/min` also does not protect its properties if a later compiler renames them. Version `0.0.8` does not provide bundled externs or a general fluent-property preservation contract. Broader compiler support and preservation guidance are deferred to `0.0.9`.
 
 ### Scope ownership and short-lived nodes
 
