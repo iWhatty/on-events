@@ -4,12 +4,14 @@ const button = document.createElement('button')
 const click: Stop = On.click(button, (event) => { const mouse: MouseEvent = event })
 const chain: OnChain = On.capture.passive
 chain.scroll(button, (event) => { const generic: Event = event })
-On.group().capture.passive.delegate.click(document, 'button', function (event) {
+On.group().capture.passive.delegate.click(document, 'button', function (event, matched) {
   const target: Element = this
+  const match: Element = matched
   const mouse: MouseEvent = event
 })
-On.delegate.first.capture.passive.event('panel:open')(document, 'button', function (event) {
+On.delegate.first.capture.passive.event('panel:open')(document, 'button', function (event, matched) {
   const target: Element = this
+  const match: Element = matched
   const generic: Event = event
 })
 On.capture.event('capture')(button, () => {})
@@ -23,11 +25,31 @@ const same: Stop = group.add(click)
 const empty: null = group.add(null)
 group.add(undefined)
 group.add(false)
+const finish: Stop = group.defer(() => {})
+finish()
 group.stop()
-On.delegate.capture.batch(document, { click: () => {}, event: ['button', function () { const target: Element = this }] })
+On.delegate.capture.batch(document, { click: () => {}, event: ['button', function (event, matched) {
+  const target: Element = this
+  const match: Element = matched
+}] })
 on(button, 'click', () => {}, true)
-on(document, 'click', 'button', function () { const target: Element = this }, { once: true })
+on<MouseEvent>(document, 'click', 'button', function (event, matched) {
+  const target: Element = this
+  const match: Element = matched
+  const mouse: MouseEvent = event
+}, { once: true })
 off(button, 'click', () => {})
+
+class Controller {
+  matched: Element | undefined
+  handle(event: MouseEvent, matched: Element) { this.matched = matched }
+}
+const controller = new Controller()
+On.delegate.click(document, 'button', controller.handle.bind(controller))
+On.capture.passive.delegate.click(document, 'button', (event, matched) => {
+  const mouse: MouseEvent = event
+  const match: Element = matched
+})
 
 // @ts-expect-error The fluent surface is not callable.
 On(button, () => {})
@@ -49,3 +71,9 @@ On.group().capture.stop()
 On.capture.click(button, (event: KeyboardEvent) => {})
 // @ts-expect-error Custom event binders are leaf functions.
 On.event('panel:open').passive
+// @ts-expect-error Only group roots expose deferred cleanup.
+On.group().capture.defer(() => {})
+// @ts-expect-error Deferred cleanup requires a function.
+group.defer(null)
+// @ts-expect-error A matched element is not an event.
+On.delegate.click(document, 'button', (event, matched: Event) => {})

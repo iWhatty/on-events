@@ -146,7 +146,7 @@ describe('listener lifecycle regressions', () => {
     expect(fn).toHaveBeenCalledOnce()
   })
 
-  it.each(['capture', 'delegate', 'once', 'event', 'ready', 'batch', 'hover', 'group', 'add', 'stop'])('binds the explicit event name %s', (type) => {
+  it.each(['capture', 'delegate', 'once', 'event', 'ready', 'batch', 'hover', 'group', 'add', 'defer', 'stop'])('binds the explicit event name %s', (type) => {
     const fn = vi.fn()
     const group = On.group()
     group.capture.passive.event(type)(button, fn)

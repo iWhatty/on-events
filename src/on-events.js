@@ -6,6 +6,22 @@ const listeners = new WeakMap()
 
 const noop = () => {}
 
+// Detach ownership before invocation; retain no cleanup or owner after disposal.
+// Registration stays with the caller so failed bindings never enter a scope.
+function createDisposer(cleanup, scope) {
+  if (typeof cleanup !== 'function') throw new TypeError('Expected a cleanup function')
+
+  const stop = () => {
+    if (!cleanup) return
+    const run = cleanup
+    cleanup = undefined
+    scope?.delete(stop)
+    scope = undefined
+    run()
+  }
+  return stop
+}
+
 // Every API path ends here. Each registration owns its listener and cleanup.
 function bind(el, type, selector, cb, options, scope) {
   if (typeof cb !== 'function') throw new TypeError('Expected an event handler function')
@@ -17,19 +33,14 @@ function bind(el, type, selector, cb, options, scope) {
   const signal = opts.signal
   if (signal?.aborted) return noop
 
-  let active = true
-  const record = { type, cb, selector, stop }
-
-  function stop() {
-    if (!active) return
-    active = false
+  const stop = createDisposer(() => {
     el.removeEventListener(type, wrapped, capture)
     signal?.removeEventListener('abort', stop)
     const records = listeners.get(el)
     records?.delete(record)
     if (records?.size === 0) listeners.delete(el)
-    scope?.delete(stop)
-  }
+  }, scope)
+  const record = { type, cb, selector, stop }
 
   function wrapped(event) {
     let context = this
@@ -43,7 +54,8 @@ function bind(el, type, selector, cb, options, scope) {
     // Remove before invoking user code, including reentrant dispatches.
     // Delegated once listeners expire only after a selector match.
     if (once) stop()
-    cb.call(context, event)
+    if (selector === null) cb.call(context, event)
+    else cb.call(context, event, context)
   }
 
   // Preserve inherited option fields and the browser's default passive policy.
@@ -95,7 +107,7 @@ const makeOn = (flags = 0, scope) =>
   new Proxy(Object.create(null), {
     get(target, prop) {
       // Respect concrete properties assigned directly onto the proxy target.
-      // Root controls like group/add/stop do not propagate into modifier chains.
+      // Root controls like group/add/defer/stop do not propagate into modifier chains.
       if (Reflect.has(target, prop)) {
         return Reflect.get(target, prop)
       }
@@ -181,6 +193,12 @@ On.group = function group() {
     // Pass through nullish / false values so callers can safely write:
     // group.add(maybeElement ? On.click(...) : null)
     if (typeof stop === 'function') stops.add(stop)
+    return stop
+  }
+
+  scoped.defer = (cleanup) => {
+    const stop = createDisposer(cleanup, stops)
+    stops.add(stop)
     return stop
   }
 

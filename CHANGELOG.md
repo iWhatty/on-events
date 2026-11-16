@@ -4,6 +4,17 @@ What changed for people using the package, per release. Entries before 0.0.6 wer
 
 ## Unreleased
 
+## 0.0.8 — 2026-11-16
+
+- Added `group.defer(cleanup)`, which returns an idempotent disposer that unregisters itself before running cleanup. Completed disposers release their cleanup and owner references, including when cleanup throws.
+- Preserved `group.add()` identity, duplicate suppression, and nullish pass-through behavior; documented that manual calls do not remove an `add()` entry from its group.
+- Shared the disposer primitive between DOM listener stops and deferred resources so both follow the same ownership and reentrancy rules.
+- Added the matched element as a second argument to all delegated callbacks, including classic bindings, batches, custom events, and modifier chains. Ordinary delegated callbacks retain matched-element `this`; bound methods and arrows retain their normal JavaScript context. Direct callbacks still receive one argument.
+- Updated TypeScript declarations and regression checks for deferred cleanup, matched elements, bound methods, and event inference through modifier chains.
+- Added ownership recipes for stable containers, transient nodes, child scopes, timers, observers, and cancellation of application work.
+- Added an executable, tested message-handshake recipe with source/origin/payload/session validation, timeout, owner teardown, independent sessions, duplicate suppression, and guards against late asynchronous results.
+- Verified compatibility with WebRadar's six installed-extension production Chromium suites at integration commit `e33770a`, including CSS Inspect and Console Radar listener ownership and teardown.
+
 ## 0.0.7 — 2026-11-13
 
 - Fixed `On.group().stop()` leaving listeners attached when registered through two or more modifiers, such as `group.capture.passive.scroll(...)`.

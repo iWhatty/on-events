@@ -2,7 +2,7 @@
 
 export type Stop = () => void
 
-export type Handler<E extends Event = Event> = (this: Element, ev: E) => any
+export type Handler<E extends Event = Event> = (this: Element, ev: E, matchedElement: Element) => any
 export type DirectHandler<E extends Event = Event> = (ev: E) => any
 
 export type BatchMap = Record<
@@ -91,7 +91,10 @@ export type OnAPI = OnChain & {
 
 export type OnGroup = OnChain & {
   stop(): void
+  /** Returns the original cleanup. Manual calls do not remove its scope entry. */
   add<T extends Stop | null | undefined | false>(stop: T): T
+  /** Returns a once-only disposer that removes its scope entry before cleanup. */
+  defer(cleanup: Stop): Stop
 }
 
 export const On: OnAPI
