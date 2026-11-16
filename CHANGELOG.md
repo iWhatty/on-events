@@ -6,6 +6,9 @@ What changed for people using the package, per release. Entries before 0.0.6 wer
 
 ## 0.0.8 — 2026-11-16
 
+- Fixed captured listener cleanup on native Node.js `EventTarget` by using the options-object removal form. Individual stops, grouped stops, `off()`, and captured once listeners now remove their actual registrations on Node 24.11.1 as well as DOM targets.
+- Added a dependency-free native Node regression lane for both source and minified exports, included in prepublish validation alongside the DOM and TypeScript suites. All 36 native checks passed on Node 18.20.8, 20.20.2, 22.23.5, 24.11.1, and 26.13.1.
+- Documented native Node target support and a mixed classic/fluent group recipe for passive observers plus an explicitly non-passive capture listener.
 - Added `group.defer(cleanup)`, which returns an idempotent disposer that unregisters itself before running cleanup. Completed disposers release their cleanup and owner references, including when cleanup throws.
 - Preserved `group.add()` identity, duplicate suppression, and nullish pass-through behavior; documented that manual calls do not remove an `add()` entry from its group.
 - Shared the disposer primitive between DOM listener stops and deferred resources so both follow the same ownership and reentrancy rules.
@@ -14,6 +17,7 @@ What changed for people using the package, per release. Entries before 0.0.6 wer
 - Added ownership recipes for stable containers, transient nodes, child scopes, timers, observers, and cancellation of application work.
 - Added an executable, tested message-handshake recipe with source/origin/payload/session validation, timeout, owner teardown, independent sessions, duplicate suppression, and guards against late asynchronous results.
 - Verified compatibility with WebRadar's six installed-extension production Chromium suites at integration commit `e33770a`, including CSS Inspect and Console Radar listener ownership and teardown.
+- Verified the capture-compatibility build with Floppy Bee's 1,194-test app gate, production artifact checks, and real-Chromium tooltip lifecycle and three-viewport smoke at integration commit `f27d2f6`.
 
 ## 0.0.7 — 2026-11-13
 

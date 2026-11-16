@@ -210,6 +210,29 @@ group.stop()
 
 `add(fn)` returns the original function and registers the same function only once per pending batch. It passes through `null`, `undefined`, and `false`. Calling `fn()` manually does **not** remove that entry, so `group.stop()` can call it again. Arbitrary functions passed to `add()` must tolerate repeated calls. DOM stop handles returned by this library already tolerate repeated calls.
 
+### Grouping explicit listener options
+
+Combine fluent observers with classic `on()` when a listener needs an explicit option such as `passive: false`:
+
+```js
+import { On, on } from 'on-events'
+
+const listeners = On.group()
+const observe = listeners.capture.passive
+observe.pointerover(document, handlePointerOver)
+observe.blur(window, handleBlur)
+
+listeners.add(on(document, 'click', handleTap, {
+  capture: true,
+  passive: false, // handleTap may call preventDefault()
+}))
+
+// Controller destruction removes both fluent and classic registrations:
+listeners.stop()
+```
+
+Register this once per controller lifetime. It adds one bounded cleanup entry for the cancellable click listener, rather than an entry for each tap. The fluent `passive` modifier enables passive behavior; classic options are available when you need to explicitly disable it.
+
 ### `group.defer(cleanup)` (since 0.0.8)
 
 Registers a cleanup function and returns a new, once-only disposer. Call the returned disposer to finish early, or let `group.stop()` invoke it. The disposer unregisters itself before cleanup runs and releases its cleanup and owner references when finished. Further calls do nothing, including after a cleanup throws. Each `defer()` call owns an independent entry, even when it receives the same callback.
@@ -361,11 +384,25 @@ This library is a thin wrapper around native `addEventListener`.
 
 Rule of thumb: delegate `click`, `input`, and `submit`; bind directly for high-frequency events.
 
+### Native Node targets
+
+Direct `on()`, `off()`, fluent event binders, and groups support Node.js's native `EventTarget` on Node 18 or later. Use native events and abort signals with native targets. Node has no DOM tree or event propagation; its capture flag still distinguishes listener registrations.
+
+```js
+const target = new EventTarget()
+const scope = On.group()
+scope.capture.event('task:complete')(target, handleComplete)
+target.dispatchEvent(new Event('task:complete'))
+scope.stop()
+```
+
+Delegation requires DOM selector/containment APIs, and hover helpers require the application's mouse-event surfaces. `On.ready()` returns a no-op handle and does not invoke its callback when `document` is unavailable. `EventEmitter` has a different API and is not an `EventTarget` substitute.
+
 ### Misc
 
 - Delegation uses `Element.closest()` internally.
 - In ordinary delegated function handlers, `this` refers to the matched element; arrows and bound methods retain their normal JavaScript context.
-- Modern browsers only (uses `Proxy`, `WeakMap`, and modern DOM APIs).
+- Browser helpers require modern DOM APIs, `Proxy`, and `WeakMap`; direct native Node targets are supported as described above.
 - Listener binders, including `On.ready(fn)`, return a `stop()` function for explicit cleanup.
 
 ### Legacy alias

@@ -34,7 +34,8 @@ function bind(el, type, selector, cb, options, scope) {
   if (signal?.aborted) return noop
 
   const stop = createDisposer(() => {
-    el.removeEventListener(type, wrapped, capture)
+    // The options-object form also matches captured listeners on native Node targets.
+    el.removeEventListener(type, wrapped, { capture })
     signal?.removeEventListener('abort', stop)
     const records = listeners.get(el)
     records?.delete(record)

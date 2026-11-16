@@ -188,6 +188,31 @@ describe('listener lifecycle regressions', () => {
     expect(fn).toHaveBeenCalledOnce()
   })
 
+  it('mixes passive fluent observers with an explicitly non-passive captured click', () => {
+    const group = On.group()
+    const observe = vi.fn((event) => event.preventDefault())
+    const tap = vi.fn((event) => event.preventDefault())
+    group.capture.passive.pointerover(root, observe)
+    group.add(on(root, 'click', tap, { capture: true, passive: false }))
+
+    const over = new Event('pointerover', { bubbles: true, cancelable: true })
+    button.dispatchEvent(over)
+    expect(observe).toHaveBeenCalledOnce()
+    expect(over.defaultPrevented).toBe(false)
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true })
+    expect(button.dispatchEvent(click)).toBe(false)
+    expect(click.defaultPrevented).toBe(true)
+    expect(tap).toHaveBeenCalledOnce()
+
+    group.stop()
+    const afterStop = new MouseEvent('click', { bubbles: true, cancelable: true })
+    expect(button.dispatchEvent(afterStop)).toBe(true)
+    expect(afterStop.defaultPrevented).toBe(false)
+    button.dispatchEvent(new Event('pointerover', { bubbles: true }))
+    expect(observe).toHaveBeenCalledOnce()
+    expect(tap).toHaveBeenCalledOnce()
+  })
+
   it('waits for a matching delegated event before consuming once', () => {
     const other = document.createElement('span')
     root.append(other)

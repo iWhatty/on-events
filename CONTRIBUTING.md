@@ -2,7 +2,7 @@
 
 Keep ownership logic in the shared primitives in `src/on-events.js`:
 
-- `bind()` owns every DOM registration. Classic bindings, fluent events, batches, hover, and pending ready callbacks enter this same path.
+- `bind()` owns every DOM or native Node registration. Classic bindings, fluent events, batches, hover, and pending ready callbacks enter this same path. Remove listeners with `{ capture }` so native Node and DOM targets use the same explicit identity.
 - `createDisposer()` owns the once-only guard and removal from a cleanup scope. It detaches the owner and clears its stored callback before invoking cleanup, including when cleanup throws or reenters teardown.
 - `eventBinder()` binds explicit event strings. Custom names and batch keys must bypass proxy helper lookup so names such as `capture`, `event`, and `defer` remain usable as events.
 - Modifier proxies carry flags and the same cleanup scope. Root controls are concrete properties of the root target; they do not become controls on modifier chains.
@@ -26,7 +26,20 @@ npm ci
 npm run prepublishOnly
 ```
 
-The gate runs the runtime suite against source and rebuilt minified output, then checks valid and invalid TypeScript usage. Extend these suites when changing a contract; avoid adding alternate binding or cleanup paths to accommodate one helper.
+The gate runs the DOM suite against source and rebuilt minified output, the native Node contract against both exports, and valid/invalid TypeScript checks. Extend these suites when changing a contract; avoid adding alternate binding or cleanup paths to accommodate one helper.
+
+The native lane is `Testing/native-event-target.test.mjs`, run directly with `node:test`. It must use native `EventTarget`, `Event`, and `AbortController` with no DOM shim or normalization wrapper. Assert actual listener removal with Node's public `getEventListeners()` API so suppressing callbacks alone cannot hide a retained listener.
+
+Build the minified artifact once with the development toolchain, then run the dependency-free harness under the Node versions being checked:
+
+```sh
+npm run build
+npm run test:node
+# With each alternate Node binary:
+node --test Testing/native-event-target.test.mjs
+```
+
+The package supports native targets from Node 18 onward. The full development suite uses jsdom's newer Node requirements; use Node 24 for that toolchain, and run the prebuilt native harness separately for older supported runtimes.
 
 The executable handshake recipe in `examples/validated-handshake.js` is covered by `Testing/handshake.test.js`. Keep its source/origin/session checks, timeout, and late-result guards in the application example rather than adding application policy to the binding core.
 
