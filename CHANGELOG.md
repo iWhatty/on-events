@@ -4,6 +4,10 @@ What changed for people using the package, per release. Entries before 0.0.6 wer
 
 ## Unreleased
 
+- Added opt-in Closure ADVANCED externs and a property-name manifest generated from validated public declarations in an isolated type environment, with guidance for preserving fluent APIs through bundler stages and extending preservation for application-defined event properties.
+- Expanded TypeScript event inference to standard document and window events, including `DOMContentLoaded`, `visibilitychange`, `message`, and `pagehide`.
+- Added compiler regressions for source and minified entries, including minified bundles, an earlier property-mangling stage, lifecycle helpers, and missing-preservation controls; included the pinned compiler lane in release validation.
+
 ## 0.0.8 — 2026-11-16
 
 - Added a first-interaction recipe that retires a group of takeover listeners across event types and targets while preserving the visitor's event, with regression coverage for teardown inside the callback and fresh-scope isolation.

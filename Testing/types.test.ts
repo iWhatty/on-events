@@ -20,6 +20,11 @@ On.event<CustomEvent<{ id: number }>>('panel:open')(button, (event) => {
 })
 On.delegate.event('click')(document, 'button', (event) => { const mouse: MouseEvent = event })
 const ready: Stop = On.group().ready(() => {})
+On.first.message(window, (event) => { const message: MessageEvent = event })
+On.capture.pagehide(window, (event) => { const persisted: boolean = event.persisted })
+On.event('message')(window, (event) => { const message: MessageEvent = event })
+On.group().visibilitychange(document, (event) => { const generic: Event = event })
+On.DOMContentLoaded(document, (event) => { const generic: Event = event })
 const group = On.group()
 const same: Stop = group.add(click)
 const empty: null = group.add(null)
@@ -70,6 +75,8 @@ On.group().group()
 On.group().capture.stop()
 // @ts-expect-error A click event is not a keyboard event.
 On.capture.click(button, (event: KeyboardEvent) => {})
+// @ts-expect-error A message event is not a keyboard event.
+On.first.message(window, (event: KeyboardEvent) => {})
 // @ts-expect-error Custom event binders are leaf functions.
 On.event('panel:open').passive
 // @ts-expect-error Only group roots expose deferred cleanup.

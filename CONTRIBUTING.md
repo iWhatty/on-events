@@ -26,7 +26,9 @@ npm ci
 npm run prepublishOnly
 ```
 
-The gate runs the DOM suite against source and rebuilt minified output, the native Node contract against both exports, and valid/invalid TypeScript checks. Extend these suites when changing a contract; avoid adding alternate binding or cleanup paths to accommodate one helper.
+The gate runs the DOM suite against source and rebuilt minified output, the native Node contract against both exports, valid/invalid TypeScript checks, and the pinned Closure compiler matrix. Extend these suites when changing a contract; avoid adding alternate binding or cleanup paths to accommodate one helper.
+
+`compiler/properties.json` and `compiler/closure.externs.js` are generated from the public declarations by `npm run compiler:generate`. Generation rejects invalid declarations and excludes ambient dependency types. When the public API, DOM type maps, or TypeScript dependency changes, regenerate and review both artifacts. The compiler lane rejects stale files and checks static fluent names through the complete esbuild-to-Closure pipeline for both entries, including negative controls; it must not silently skip an unavailable compiler. See `compiler/README.md` for the consumer contract and its limits.
 
 The native lane is `Testing/native-event-target.test.mjs`, run directly with `node:test`. It must use native `EventTarget`, `Event`, and `AbortController` with no DOM shim or normalization wrapper. Assert actual listener removal with Node's public `getEventListeners()` API so suppressing callbacks alone cannot hide a retained listener.
 

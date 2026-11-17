@@ -1,6 +1,6 @@
 {
     "name": "on-events",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "description": "Tiny DOM event utility with composable sugar, delegation, and cleanup.",
     "type": "module",
     "sideEffects": false,
@@ -19,12 +19,15 @@
         "./min": {
             "types": "./dist/on-events.d.ts",
             "default": "./dist/on-events.min.js"
-        }
+        },
+        "./compiler/closure.externs.js": "./compiler/closure.externs.js",
+        "./compiler/properties.json": "./compiler/properties.json"
     },
     "files": [
         "src",
         "dist",
         "examples",
+        "compiler",
         "README.md",
         "LICENSE",
         "ADDITIONAL_TERMS.md",
@@ -56,14 +59,17 @@
         "test:run": "vitest run",
         "test:types": "tsc -p Testing/tsconfig.json",
         "test:node": "node --test Testing/native-event-target.test.mjs",
+        "test:compiler": "node --test Testing/compiler.test.mjs",
+        "compiler:generate": "node scripts/compiler-support.mjs",
         "test:min": "npm run build && vitest run --config Testing/vitest.min.config.js",
         "test:ui": "vitest --ui",
         "test:watch": "vitest --watch",
         "build": "node build.js",
-        "prepublishOnly": "npm run test:run && npm run test:min && npm run test:node && npm run test:types"
+        "prepublishOnly": "npm run test:run && npm run test:min && npm run test:node && npm run test:types && npm run test:compiler"
     },
     "devDependencies": {
         "esbuild": "^0.25.3",
+        "google-closure-compiler": "20260422.0.0",
         "jsdom": "^28.1.0",
         "typescript": "^5.9.3",
         "vitest": "^4.0.18"

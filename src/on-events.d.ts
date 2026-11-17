@@ -51,6 +51,8 @@ export type EventBinder<E extends Event = Event, Delegated extends boolean = fal
 
 // --- Fluent Chain API core ---
 
+type DOMEventMap = GlobalEventHandlersEventMap & DocumentEventMap & WindowEventMap
+
 interface ChainModifiers<Delegated extends boolean> {
   first: OnChain<Delegated>
   once: OnChain<Delegated>
@@ -71,15 +73,15 @@ interface ChainModifiers<Delegated extends boolean> {
 
   ready(fn: () => void): Stop
 
-  event<K extends keyof GlobalEventHandlersEventMap>(
+  event<K extends keyof DOMEventMap>(
     type: K
-  ): EventBinder<GlobalEventHandlersEventMap[K], Delegated>
+  ): EventBinder<DOMEventMap[K], Delegated>
   event<E extends Event = Event>(type: string): EventBinder<E, Delegated>
 }
 
 export type OnEventMap<Delegated extends boolean = false> = {
-  [K in keyof GlobalEventHandlersEventMap]:
-    EventBinder<GlobalEventHandlersEventMap[K], Delegated>
+  [K in keyof DOMEventMap]:
+    EventBinder<DOMEventMap[K], Delegated>
 }
 
 export type OnChain<Delegated extends boolean = false> =

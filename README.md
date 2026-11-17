@@ -34,7 +34,7 @@ pnpm add on-events
 
 As of 0.0.5 the default entry routes bundlers at ESM source so unused exports can be tree-shaken; pre-built minified bundle remains available via the `on-events/min` subpath for unbundled `<script type="module">` use.
 
-**Property-renaming compilers:** fluent event and modifier names must be preserved. With Closure Compiler ADVANCED or other property-mangling pipelines, use the [explicit `on()` + `group.add()` recipe](#property-renaming-compilers) unless your complete build preserves those names.
+**Property-renaming compilers:** fluent event and modifier names must be preserved. Version `0.0.9` adds opt-in [compiler preservation files](./compiler/README.md). Use the [explicit `on()` + `group.add()` recipe](#property-renaming-compilers) when your complete build cannot preserve those names.
 
 ---
 
@@ -109,6 +109,8 @@ panel.delegate.click(container, 'button.action', (event, matchedElement) => {
 Ordinary function callbacks still receive the matched element as `this`. Arrow callbacks and controller methods bound with `.bind(controller)` keep their normal JavaScript `this` and can use the second argument instead. Existing one-argument handlers continue to work. Direct handlers still receive only the event.
 
 TypeScript infers the event type through modifiers and provides the match as `Element`; narrow that type when you need element-specific properties. The second argument was added in `0.0.8`; version `0.0.7` exposes delegated matches through `this` only.
+
+Since `0.0.9`, fluent names and `On.event(type)` also infer standard document and window events such as `DOMContentLoaded`, `visibilitychange`, `message`, and `pagehide`.
 
 ### `On.hover(el, enterFn, leaveFn)`
 
@@ -355,7 +357,9 @@ This keeps event names in strings and listener options in the native options obj
 
 The explicit binding pattern was verified with the `0.0.8` source and consumer compiled together using Closure Compiler `20260422.0.0`, ADVANCED mode, and the BROWSER environment. Compatibility with arbitrary property-renaming configurations is not guaranteed; verify event names, options, callbacks, and cleanup in your final bundle. Preserve native option keys and any public properties crossing separately compiled boundaries.
 
-Quoting fluent properties alone is not a reliable workaround: an earlier bundler stage can rewrite quoted access before property renaming runs. Importing `on-events/min` also does not protect its properties if a later compiler renames them. Version `0.0.8` does not provide bundled externs or a general fluent-property preservation contract. Broader compiler support and preservation guidance are deferred to `0.0.9`.
+Version `0.0.9` includes opt-in Closure externs and a generated property-name manifest, with a regression matrix for both package entries bundled with their consumers. See the [compiler guide](./compiler/README.md) for setup, application-defined events, and the tested scope. Version `0.0.8` does not include these preservation files.
+
+Quoting fluent properties alone is not a reliable workaround: an earlier bundler stage can rewrite quoted access before property renaming runs. Importing `on-events/min` also does not protect its properties if a later compiler renames them. Preserve the protocol at every renaming stage; the package does not automatically configure your compiler.
 
 ### Scope ownership and short-lived nodes
 
