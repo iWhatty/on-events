@@ -235,6 +235,37 @@ listeners.stop()
 
 Register this once per controller lifetime. It adds one bounded cleanup entry for the cancellable click listener, rather than an entry for each tap. The fluent `passive` modifier enables passive behavior; classic options are available when you need to explicitly disable it.
 
+### First interaction across several bindings
+
+To end a demo when any takeover event occurs, give those bindings one group and stop the group inside their shared callback. Per-binding `first` / `once` only removes the binding that fired; the other event types and targets would remain registered.
+
+```js
+import { on, On } from 'on-events'
+
+const takeover = On.group()
+let active = true
+let frameTimer
+
+function stopDemo() {
+  if (!active) return
+  active = false
+  clearTimeout(frameTimer)
+  takeover.stop()
+}
+
+for (const type of ['pointerdown', 'keydown', 'wheel', 'dragenter']) {
+  takeover.add(on(document, type, stopDemo, { capture: true, passive: true }))
+}
+takeover.add(on(resultPane, 'mouseenter', stopDemo))
+
+frameTimer = setTimeout(advanceDemo, 2600)
+// Also call stopDemo() when the owning UI is destroyed.
+```
+
+The first interaction removes every takeover listener, including the one executing the callback. The callback does not call `preventDefault()` or stop propagation, so the same interaction can still reach the application's controls. Capture observes document events before target handlers; passive observers cannot cancel them. Plain pointer movement outside the result pane does not end this demo.
+
+`advanceDemo` and `resultPane` belong to the application. If it schedules another frame, store the latest timer ID in `frameTimer`. State, timer cancellation, and presentation remain application responsibilities: `group.stop()` only runs registered cleanups. Create a fresh group and callback state for each demo lifetime. This recipe works with `0.0.7` and later and uses explicit event strings as described in the [compiler guidance](#property-renaming-compilers).
+
 ### `group.defer(cleanup)` (since 0.0.8)
 
 Registers a cleanup function and returns a new, once-only disposer. Call the returned disposer to finish early, or let `group.stop()` invoke it. The disposer unregisters itself before cleanup runs and releases its cleanup and owner references when finished. Further calls do nothing, including after a cleanup throws. Each `defer()` call owns an independent entry, even when it receives the same callback.

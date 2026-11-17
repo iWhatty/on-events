@@ -213,6 +213,60 @@ describe('listener lifecycle regressions', () => {
     expect(tap).toHaveBeenCalledOnce()
   })
 
+  it.each(['pointerdown', 'keydown', 'wheel', 'dragenter', 'mouseenter'])('retires a shared takeover scope on %s while preserving visitor delivery', (type) => {
+    const group = On.group()
+    const removeDocument = vi.spyOn(document, 'removeEventListener')
+    const removeButton = vi.spyOn(button, 'removeEventListener')
+    const stopDemo = vi.fn(() => group.stop())
+    for (const event of ['pointerdown', 'keydown', 'wheel', 'dragenter']) {
+      group.add(on(document, event, stopDemo, { capture: true, passive: true }))
+    }
+    group.add(on(button, 'mouseenter', stopDemo))
+
+    const visitor = vi.fn((event) => {
+      expect(stopDemo).toHaveBeenCalledOnce()
+      expect(event.defaultPrevented).toBe(false)
+    })
+    const bubbled = vi.fn()
+    button.addEventListener(type, visitor, { once: true })
+    root.addEventListener(type, bubbled, { once: true })
+    const event = new Event(type, { bubbles: type !== 'mouseenter', cancelable: true })
+    try {
+      expect(button.dispatchEvent(event)).toBe(true)
+      expect(event.defaultPrevented).toBe(false)
+      expect(visitor).toHaveBeenCalledOnce()
+      expect(bubbled).toHaveBeenCalledTimes(type === 'mouseenter' ? 0 : 1)
+      expect(removeDocument.mock.calls.map(([event, , options]) => [event, options.capture])).toEqual([
+        ['pointerdown', true], ['keydown', true], ['wheel', true], ['dragenter', true],
+      ])
+      expect(removeButton).toHaveBeenCalledWith('mouseenter', expect.any(Function), { capture: false })
+
+      for (const event of ['pointerdown', 'keydown', 'wheel', 'dragenter', 'mouseenter']) {
+        button.dispatchEvent(new Event(event, { bubbles: event !== 'mouseenter' }))
+      }
+      expect(stopDemo).toHaveBeenCalledOnce()
+      group.stop()
+      expect(removeDocument).toHaveBeenCalledTimes(4)
+      expect(removeButton).toHaveBeenCalledTimes(1)
+
+      const fresh = On.group()
+      const next = vi.fn(() => fresh.stop())
+      fresh.add(on(document, 'pointerdown', next, { capture: true, passive: true }))
+      try {
+        group.stop()
+        button.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+        expect(next).toHaveBeenCalledOnce()
+        expect(stopDemo).toHaveBeenCalledOnce()
+      } finally {
+        fresh.stop()
+      }
+    } finally {
+      group.stop()
+      button.removeEventListener(type, visitor)
+      root.removeEventListener(type, bubbled)
+    }
+  })
+
   it('waits for a matching delegated event before consuming once', () => {
     const other = document.createElement('span')
     root.append(other)
