@@ -4,6 +4,8 @@ What changed for people using the package, per release. Entries before 0.0.6 wer
 
 ## Unreleased
 
+- Added a copyable asynchronous native `EventTarget` recording example that retains listeners through final data delivery, composes cancellation with pending work, rolls back partial registration before startup, and releases resources despite teardown errors. Documented cooperative cancellation and primary/cleanup error precedence, with native regressions for both library entries.
+
 ## 0.0.9 — 2026-11-17
 
 - Added opt-in Closure ADVANCED externs and a property-name manifest generated from validated public declarations in an isolated type environment, with guidance for preserving fluent APIs through bundler stages and extending preservation for application-defined event properties.

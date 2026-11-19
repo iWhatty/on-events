@@ -26,7 +26,7 @@ npm ci
 npm run prepublishOnly
 ```
 
-The gate runs the DOM suite against source and rebuilt minified output, the native Node contract against both exports, valid/invalid TypeScript checks, and the pinned Closure compiler matrix. Extend these suites when changing a contract; avoid adding alternate binding or cleanup paths to accommodate one helper.
+The gate runs the DOM suite against source and rebuilt minified output, the native Node contract against both exports, valid/invalid TypeScript checks, native asynchronous example regressions, and the pinned Closure compiler matrix. Extend these suites when changing a contract; avoid adding alternate binding or cleanup paths to accommodate one helper.
 
 `compiler/properties.json` and `compiler/closure.externs.js` are generated from the public declarations by `npm run compiler:generate`. Generation rejects invalid declarations and excludes ambient dependency types. When the public API, DOM type maps, or TypeScript dependency changes, regenerate and review both artifacts. The compiler lane rejects stale files and checks static fluent names through the complete esbuild-to-Closure pipeline for both entries, including negative controls; it must not silently skip an unavailable compiler. See `compiler/README.md` for the consumer contract and its limits.
 
@@ -44,5 +44,7 @@ node --test Testing/native-event-target.test.mjs
 The package supports native targets from Node 18 onward. The full development suite uses jsdom's newer Node requirements; use Node 24 for that toolchain, and run the prebuilt native harness separately for older supported runtimes.
 
 The executable handshake recipe in `examples/validated-handshake.js` is covered by `Testing/handshake.test.js`. Keep its source/origin/session checks, timeout, and late-result guards in the application example rather than adding application policy to the binding core.
+
+`examples/async-native-recording.js` is another copyable application recipe, not a root export. Run `npm run test:examples` for `Testing/async-native.test.mjs`: it bundles the unchanged example once against each library entry, then uses native `EventTarget`, `Event`, `AbortController`, and `getEventListeners()` to check delayed finalization, queued/pending cancellation, partial setup rollback, and cleanup-error precedence. Setup must fail before startup or rendering; listener removal must be observed on retained targets. Keep recorder state and resource policy in the example, and keep this separate from the dependency-free native library contract lane.
 
 Before a release, inspect `npm pack --dry-run` and verify the packed artifact from a separate consumer project. Coordinate installed-browser acceptance with downstream extension projects; DOM simulation does not replace their browser lifecycle checks.

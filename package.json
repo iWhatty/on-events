@@ -59,13 +59,14 @@
         "test:run": "vitest run",
         "test:types": "tsc -p Testing/tsconfig.json",
         "test:node": "node --test Testing/native-event-target.test.mjs",
+        "test:examples": "node --test Testing/async-native.test.mjs",
         "test:compiler": "node --test Testing/compiler.test.mjs",
         "compiler:generate": "node scripts/compiler-support.mjs",
         "test:min": "npm run build && vitest run --config Testing/vitest.min.config.js",
         "test:ui": "vitest --ui",
         "test:watch": "vitest --watch",
         "build": "node build.js",
-        "prepublishOnly": "npm run test:run && npm run test:min && npm run test:node && npm run test:types && npm run test:compiler"
+        "prepublishOnly": "npm run test:run && npm run test:min && npm run test:node && npm run test:types && npm run test:examples && npm run test:compiler"
     },
     "devDependencies": {
         "esbuild": "^0.25.3",

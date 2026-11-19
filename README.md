@@ -422,6 +422,44 @@ Share the session identifier through your application's protocol and send messag
 
 The example requires `0.0.8` or later for `defer()`. With `0.0.7`, retain an explicit pending-resource collection for timer and task cleanup alongside the scoped message listener. The example's tests cover unrelated messages first, sessions finishing in reverse order, duplicate messages, timeout, owner destruction, and late success or failure. These are correctness checks; no speed or heap-size improvement is claimed.
 
+### Asynchronous native EventTarget lifetimes
+
+A resource's stop request is not always the end of its event lifetime. For `MediaRecorder`, the final `dataavailable` and `stop` events arrive asynchronously after `recorder.stop()`. Keep the listeners until successful finalization completes; on cancellation or failure, discard the recording and release ownership. See the [MediaStream Recording stop algorithm](https://www.w3.org/TR/mediastream-recording/#dom-mediarecorder-stop).
+
+Copy the [tested recording example](./examples/async-native-recording.js) into your application. It uses the existing `on()` and `On.group()` APIs and does not add a package API:
+
+```js
+import { recordWithCleanup } from './async-native-recording.js'
+
+const controller = new AbortController()
+const stream = canvas.captureStream(30)
+const clip = await recordWithCleanup({
+  createRecorder: () => new MediaRecorder(stream, { mimeType }),
+  signal: controller.signal,
+  run: async (recorder, signal) => {
+    for (const frame of frames) {
+      signal.throwIfAborted()
+      await renderFrame(frame, signal)
+      signal.throwIfAborted()
+      await waitForNextFrame(signal)
+    }
+  },
+  release: () => {
+    for (const track of stream.getTracks()) track.stop()
+  },
+})
+// UI cancellation calls controller.abort(reason).
+// The resolved clip includes the final chunks; its tracks are already stopped.
+```
+
+`canvas`, a supported `mimeType`, the frame sequence, rendering, and frame waits are application inputs. Each invocation creates one listener group for `dataavailable`, `error`, `stop`, and the optional abort signal. The helper owns startup and stop requests; `run` must not stop the recorder itself. Registration happens outside Promise executors so a setup exception immediately rolls back earlier bindings without starting the recorder or queued work.
+
+The helper takes ownership of the synchronous `release()` callback when called: release still runs after pre-abort, construction failure, partial registration, cancellation, or listener-teardown failure. Every cleanup step is attempted. A lone failure is rethrown unchanged; multiple failures produce an `AggregateError` with the primary failure first and cleanup failures afterward. A group's own cleanup failures may be a nested `AggregateError`.
+
+Work is raced against abort and recorder failure, with ownership checks before queued work and after waits. Removing listeners or rejecting that race does not terminate work already running. `run`, rendering, timers, and frame waits must cooperate with the signal and check it before late side effects. UI restoration, recording deadlines, codec support, and cancellation policy belong to the application.
+
+The example requires the existing `0.0.9` APIs and is available in this repository; it is not part of the already-published `0.0.9` tarball. Its native Node tests exercise both source and minified entries with controllable asynchronous delivery and retained recorder/signal references. Those tests establish ownership and error handling, not real encoding, video fidelity, or cross-browser codec support.
+
 ### Why not `addEventListener` directly?
 
 `addEventListener` is great, this library just removes the repetitive parts when you bind lots of UI events.
