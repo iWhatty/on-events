@@ -4,7 +4,10 @@ What changed for people using the package, per release. Entries before 0.0.6 wer
 
 ## Unreleased
 
+## 0.0.10 — Unreleased
+
 - Added a copyable asynchronous native `EventTarget` recording example that retains listeners through final data delivery, composes cancellation with pending work, rolls back partial registration before startup, and releases resources despite teardown errors. Documented cooperative cancellation and primary/cleanup error precedence, with native regressions for both library entries.
+- Hardened the example to await asynchronous resource release and preserve its failures, validate callbacks before startup, and retain the recording MIME type when final chunks are untyped and the recorder resets its type on stop. Cancellation during cleanup cannot skip resource release.
 
 ## 0.0.9 — 2026-11-17
 

@@ -1,8 +1,10 @@
 import { on, On } from 'on-events'
 
 // Application recipe, not a package API. The caller owns recording policy and
-// cooperative work cancellation. release() is synchronous and owns the resource.
+// cooperative work cancellation. release() owns the resource and is awaited.
 export async function recordWithCleanup({ createRecorder, run, release, signal }) {
+  // No resource can be acquired if its required release callback is missing.
+  if (typeof release !== 'function') throw new TypeError('release must be a function')
   const listeners = On.group()
   const chunks = []
   const errors = []
@@ -28,6 +30,8 @@ export async function recordWithCleanup({ createRecorder, run, release, signal }
   }
 
   try {
+    if (typeof createRecorder !== 'function') throw new TypeError('createRecorder must be a function')
+    if (typeof run !== 'function') throw new TypeError('run must be a function')
     check()
     recorder = createRecorder()
     check()
@@ -57,6 +61,7 @@ export async function recordWithCleanup({ createRecorder, run, release, signal }
     check()
     if (recorder.state === 'inactive') throw new Error('Recorder stopped before finalization was requested')
 
+    const recordedType = recorder.mimeType
     finalizing = true
     recorder.stop()
     check()
@@ -66,7 +71,7 @@ export async function recordWithCleanup({ createRecorder, run, release, signal }
     check()
     // A recorder can reset mimeType while becoming inactive. Prefer the type
     // carried by actual recorded data rather than its post-stop state.
-    blob = new Blob(chunks, { type: chunks.find(data => data.type)?.type || recorder.mimeType })
+    blob = new Blob(chunks, { type: chunks.find(data => data.type)?.type || recordedType })
     if (blob.size === 0) throw new Error('Recorder produced no data')
   } catch (error) {
     errors.push(error)
@@ -77,7 +82,9 @@ export async function recordWithCleanup({ createRecorder, run, release, signal }
       if (recorder && recorder.state !== 'inactive') recorder.stop()
     } catch (error) { errors.push(error) }
     try { listeners.stop() } catch (error) { errors.push(error) }
-    try { release() } catch (error) { errors.push(error) }
+    // Do not race cleanup against cancellation: owned resources must finish
+    // releasing even if the signal is aborted while cleanup is pending.
+    try { await release() } catch (error) { errors.push(error) }
   }
 
   if (errors.length === 1) throw errors[0]

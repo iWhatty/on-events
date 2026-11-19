@@ -59,10 +59,10 @@ function harness({ bindFailure, removeFailure, stopFailure, releaseFailure, cons
     },
     signal: controller.signal,
   }
-  function clean() {
+  function clean(releases = 1) {
     for (const type of eventTypes) assert.equal(getEventListeners(recorder, type).length, 0, type)
     assert.equal(getEventListeners(controller.signal, 'abort').length, 0, 'abort')
-    assert.equal(calls.released, 1)
+    assert.equal(calls.released, releases)
   }
   return { recorder, controller, calls, options, clean }
 }
@@ -116,6 +116,113 @@ for (const [entry, library] of [['source', 'src/on-events.js'], ['minified', 'di
       assert.equal(blob.type, 'video/webm')
       assert.equal(await blob.text(), 'done')
       h.clean()
+    })
+
+    await t.test('retains the recording MIME type when final chunks are untyped', async () => {
+      const h = harness()
+      h.recorder.stop = () => {
+        h.calls.stopped++
+        h.recorder.state = 'inactive'
+        h.recorder.mimeType = ''
+      }
+      const recording = recordWithCleanup(h.options)
+      await turn()
+      h.recorder.dispatchEvent(Object.assign(new Event('dataavailable'), { data: new Blob(['untyped']) }))
+      h.recorder.dispatchEvent(new Event('stop'))
+      const blob = await recording
+      assert.equal(blob.type, 'video/webm')
+      assert.equal(await blob.text(), 'untyped')
+      h.clean()
+    })
+
+    await t.test('waits for asynchronous release after detaching every listener', async () => {
+      const h = harness(), cleanup = deferred()
+      h.options.release = () => { h.calls.released++; return cleanup.promise }
+      let settled = false
+      const recording = recordWithCleanup(h.options)
+      recording.then(() => { settled = true }, () => { settled = true })
+      try {
+        await turn()
+        emitData(h.recorder, 'done')
+        h.recorder.dispatchEvent(new Event('stop'))
+        await turn()
+        h.clean()
+        assert.equal(settled, false, 'recording must remain pending until release completes')
+        cleanup.resolve()
+        assert.equal(await (await recording).text(), 'done')
+      } finally { cleanup.resolve() }
+    })
+
+    await t.test('rejects invalid run callbacks before constructing or starting a recorder', async () => {
+      const h = harness()
+      h.options.run = null
+      await assert.rejects(recordWithCleanup(h.options), TypeError)
+      assert.equal(h.calls.created, 0)
+      assert.equal(h.calls.started, 0)
+      h.clean()
+    })
+
+    await t.test('rejects invalid factories before acquisition and still releases owned resources', async () => {
+      const h = harness()
+      h.options.createRecorder = null
+      await assert.rejects(recordWithCleanup(h.options), TypeError)
+      assert.equal(h.calls.created, 0)
+      assert.equal(h.calls.started, 0)
+      h.clean()
+    })
+
+    await t.test('rejects missing release callbacks before acquisition', async () => {
+      const h = harness()
+      h.options.release = null
+      await assert.rejects(recordWithCleanup(h.options), TypeError)
+      assert.equal(h.calls.created, 0)
+      assert.equal(h.calls.started, 0)
+      h.clean(0)
+    })
+
+    await t.test('preserves asynchronous release rejection after successful finalization', async () => {
+      const h = harness(), failure = new Error('async release failed')
+      h.options.release = async () => { h.calls.released++; throw failure }
+      const recording = recordWithCleanup(h.options)
+      const rejected = assert.rejects(recording, error => error === failure)
+      await turn()
+      emitData(h.recorder, 'done')
+      h.recorder.dispatchEvent(new Event('stop'))
+      await rejected
+      h.clean()
+    })
+
+    await t.test('keeps primary and teardown errors before an asynchronous release rejection', async () => {
+      const primary = new Error('work failed'), removal = new Error('remove failed'), release = new Error('async release failed')
+      const h = harness({ removeFailure: { type: 'dataavailable', error: removal } })
+      h.options.run = () => { throw primary }
+      h.options.release = async () => { h.calls.released++; throw release }
+      await assert.rejects(recordWithCleanup(h.options), error => {
+        assert.ok(error instanceof AggregateError)
+        assert.deepEqual(error.errors, [primary, removal, release])
+        return true
+      })
+      h.clean()
+    })
+
+    await t.test('cancellation cannot interrupt resource cleanup after finalization', async () => {
+      const h = harness(), cleanup = deferred()
+      h.options.release = () => { h.calls.released++; return cleanup.promise }
+      let settled = false
+      const recording = recordWithCleanup(h.options)
+      recording.then(() => { settled = true }, () => { settled = true })
+      try {
+        await turn()
+        emitData(h.recorder, 'done')
+        h.recorder.dispatchEvent(new Event('stop'))
+        await turn()
+        h.clean()
+        h.controller.abort(new Error('late cancellation'))
+        await turn()
+        assert.equal(settled, false)
+        cleanup.resolve()
+        assert.equal(await (await recording).text(), 'done')
+      } finally { cleanup.resolve() }
     })
 
     for (const phase of ['already aborted', 'before queued work', 'pending work', 'finalization']) {
