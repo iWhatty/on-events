@@ -22,6 +22,22 @@ function createDisposer(cleanup, scope) {
   return stop
 }
 
+function stopAll(stops, message, errors = []) {
+  for (const stop of stops) {
+    try {
+      stop()
+    } catch (err) {
+      errors.push(err)
+    }
+  }
+  if (errors.length === 1) throw errors[0]
+  if (errors.length > 1) throw new AggregateError(errors, message)
+}
+
+function rollback(stops, error) {
+  stopAll(stops, 'Binding setup and rollback failed', [error])
+}
+
 // Every API path ends here. Each registration owns its listener and cleanup.
 function bind(el, type, selector, cb, options, scope) {
   if (typeof cb !== 'function') throw new TypeError('Expected an event handler function')
@@ -130,12 +146,14 @@ const makeOn = (flags = 0, scope) =>
       if (k === 'hover') {
         return (el, enter, leave) => {
           const o = optsFor(flags)
-          const offIn = bind(el, 'mouseenter', null, enter, o, scope)
-          const offOut = bind(el, 'mouseleave', null, leave, o, scope)
-          return () => {
-            offIn()
-            offOut()
+          const stops = []
+          try {
+            stops.push(bind(el, 'mouseenter', null, enter, o, scope))
+            stops.push(bind(el, 'mouseleave', null, leave, o, scope))
+          } catch (error) {
+            rollback(stops, error)
           }
+          return () => stopAll(stops, 'On.hover() cleanup failed')
         }
       }
 
@@ -143,23 +161,25 @@ const makeOn = (flags = 0, scope) =>
         return (el, map) => {
           const stops = []
 
-          for (const [event, val] of Object.entries(map)) {
-            // Direct entry: { click: fn }
-            if (typeof val === 'function') {
-              stops.push(eventBinder(event, flags & ~DELEGATE, scope)(el, val))
-              continue
-            }
+          try {
+            for (const [event, val] of Object.entries(map)) {
+              // Direct entry: { click: fn }
+              if (typeof val === 'function') {
+                stops.push(eventBinder(event, flags & ~DELEGATE, scope)(el, val))
+                continue
+              }
 
-            // Delegated entry: { click: ['a', fn] }
-            if (Array.isArray(val)) {
-              const [selector, fn] = val
-              stops.push(eventBinder(event, flags | DELEGATE, scope)(el, selector, fn))
+              // Delegated entry: { click: ['a', fn] }
+              if (Array.isArray(val)) {
+                const [selector, fn] = val
+                stops.push(eventBinder(event, flags | DELEGATE, scope)(el, selector, fn))
+              }
             }
+          } catch (error) {
+            rollback(stops, error)
           }
 
-          return () => {
-            for (const stop of stops) stop()
-          }
+          return () => stopAll(stops, 'On.batch() cleanup failed')
         }
       }
 

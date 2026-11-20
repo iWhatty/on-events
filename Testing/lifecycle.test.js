@@ -188,6 +188,79 @@ describe('listener lifecycle regressions', () => {
     expect(fn).toHaveBeenCalledOnce()
   })
 
+  it('rolls back earlier batch listeners when a later registration fails', () => {
+    const existing = vi.fn()
+    const first = vi.fn()
+    const second = vi.fn()
+    On.click(button, existing)
+    const reason = new Error('batch registration failed')
+    const nativeAdd = button.addEventListener.bind(button)
+    vi.spyOn(button, 'addEventListener').mockImplementation((type, ...args) => {
+      if (type === 'mouseover') throw reason
+      return nativeAdd(type, ...args)
+    })
+
+    expect(() => On.batch(button, { click: first, mouseover: second })).toThrow(reason)
+    button.dispatchEvent(new Event('click'))
+    button.dispatchEvent(new Event('mouseover'))
+    expect(existing).toHaveBeenCalledOnce()
+    expect(first).not.toHaveBeenCalled()
+    expect(second).not.toHaveBeenCalled()
+  })
+
+  it('rolls back grouped hover listeners when the second registration fails', () => {
+    const existing = vi.fn()
+    const enter = vi.fn()
+    const leave = vi.fn()
+    On.mouseenter(button, existing)
+    const reason = new Error('hover registration failed')
+    const nativeAdd = button.addEventListener.bind(button)
+    vi.spyOn(button, 'addEventListener').mockImplementation((type, ...args) => {
+      if (type === 'mouseleave') throw reason
+      return nativeAdd(type, ...args)
+    })
+    const group = On.group()
+
+    expect(() => group.hover(button, enter, leave)).toThrow(reason)
+    button.dispatchEvent(new MouseEvent('mouseenter'))
+    button.dispatchEvent(new MouseEvent('mouseleave'))
+    expect(existing).toHaveBeenCalledOnce()
+    expect(enter).not.toHaveBeenCalled()
+    expect(leave).not.toHaveBeenCalled()
+    expect(() => group.stop()).not.toThrow()
+  })
+
+  it('keeps the registration error first when batch rollback also fails', () => {
+    const registration = new Error('batch registration failed')
+    const cleanup = new Error('batch rollback failed')
+    const first = vi.fn()
+    const second = vi.fn()
+    const nativeAdd = button.addEventListener.bind(button)
+    vi.spyOn(button, 'addEventListener').mockImplementation((type, ...args) => {
+      if (type === 'mouseover') throw registration
+      return nativeAdd(type, ...args)
+    })
+    vi.spyOn(button, 'removeEventListener').mockImplementation(function (type, ...args) {
+      if (type === 'click') throw cleanup
+      return EventTarget.prototype.removeEventListener.call(this, type, ...args)
+    })
+
+    try {
+      On.batch(button, { click: first, keydown: second, mouseover: vi.fn() })
+      expect.unreachable('batch setup must report registration failure')
+    } catch (error) {
+      expect(error).toBeInstanceOf(AggregateError)
+      expect(error.errors).toHaveLength(2)
+      expect(error.errors[0]).toBe(registration)
+      expect(error.errors[1]).toBe(cleanup)
+    }
+
+    button.dispatchEvent(new Event('click'))
+    button.dispatchEvent(new Event('keydown'))
+    expect(first).toHaveBeenCalledOnce()
+    expect(second).not.toHaveBeenCalled()
+  })
+
   it('mixes passive fluent observers with an explicitly non-passive captured click', () => {
     const group = On.group()
     const observe = vi.fn((event) => event.preventDefault())

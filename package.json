@@ -1,6 +1,6 @@
 {
     "name": "on-events",
-    "version": "0.0.10",
+    "version": "0.0.11",
     "description": "Tiny DOM event utility with composable sugar, delegation, and cleanup.",
     "type": "module",
     "sideEffects": false,

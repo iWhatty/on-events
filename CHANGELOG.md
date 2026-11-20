@@ -4,6 +4,8 @@ What changed for people using the package, per release. Entries before 0.0.6 wer
 
 ## Unreleased
 
+- Fixed `On.batch()` and `On.hover()` leaving earlier listeners attached when a later registration fails. Both attempt all cleanups for that call and preserve the setup error, with any rollback errors reported after it in an `AggregateError`.
+
 ## 0.0.10 — 2026-11-19
 
 - Added a copyable asynchronous native `EventTarget` recording example that retains listeners through final data delivery, composes cancellation with pending work, rolls back partial registration before startup, and releases resources despite teardown errors. Documented cooperative cancellation and primary/cleanup error precedence, with native regressions for both library entries.
