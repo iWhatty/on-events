@@ -1,4 +1,15 @@
-# Maintaining the listener contract
+# Contributing to on-events
+
+Use Node 24 for development. From a fresh checkout, run:
+
+```sh
+npm ci
+npm run check
+```
+
+GitHub Actions runs the same check for pull requests and pushes to `main`. The check covers the DOM suite against source and rebuilt minified output, the native Node contract against both entries, TypeScript, the asynchronous example, and Closure Compiler compatibility. The package supports native targets from Node 18 onward. Use Node 24 to build the artifacts and run the full development suite, then run the dependency-free native harness separately on older supported runtimes.
+
+## Maintaining the listener contract
 
 Keep ownership logic in the shared primitives in `src/on-events.js`:
 
@@ -19,14 +30,7 @@ Preserve these observable contracts:
 
 ## Verification
 
-Install dependencies and run the existing release gate:
-
-```sh
-npm ci
-npm run prepublishOnly
-```
-
-The gate runs the DOM suite against source and rebuilt minified output, the native Node contract against both exports, valid/invalid TypeScript checks, native asynchronous example regressions, and the pinned Closure compiler matrix. Extend these suites when changing a contract; avoid adding alternate binding or cleanup paths to accommodate one helper.
+Use `npm run test:run` for just the source DOM suite. Extend the relevant suite when changing a contract. Keep registration and cleanup in the shared primitives.
 
 `compiler/properties.json` and `compiler/closure.externs.js` are generated from the public declarations by `npm run compiler:generate`. Generation rejects invalid declarations and excludes ambient dependency types. When the public API, DOM type maps, or TypeScript dependency changes, regenerate and review both artifacts. The compiler lane rejects stale files and checks static fluent names through the complete esbuild-to-Closure pipeline for both entries, including negative controls; it must not silently skip an unavailable compiler. See `compiler/README.md` for the consumer contract and its limits.
 
@@ -41,10 +45,13 @@ npm run test:node
 node --test Testing/native-event-target.test.mjs
 ```
 
-The package supports native targets from Node 18 onward. The full development suite uses jsdom's newer Node requirements; use Node 24 for that toolchain, and run the prebuilt native harness separately for older supported runtimes.
-
 The executable handshake recipe in `examples/validated-handshake.js` is covered by `Testing/handshake.test.js`. Keep its source/origin/session checks, timeout, and late-result guards in the application example rather than adding application policy to the binding core.
 
 `examples/async-native-recording.js` is another copyable application recipe, not a root export. Run `npm run test:examples` for `Testing/async-native.test.mjs`: it bundles the unchanged example once against each library entry, then uses native `EventTarget`, `Event`, `AbortController`, and `getEventListeners()` to check delayed finalization, queued/pending cancellation, partial setup rollback, awaited resource release, MIME fallback, and cleanup-error precedence. Setup must fail before startup or rendering; listener removal must be observed on retained targets before resource release. The helper must observe async release failures without racing cleanup against abort. Keep recorder state and resource policy in the example, and keep this separate from the dependency-free native library contract lane.
 
-Before a release, inspect `npm pack --dry-run` and verify the packed artifact from a separate consumer project. Coordinate installed-browser acceptance with downstream extension projects; DOM simulation does not replace their browser lifecycle checks.
+## Releasing to npm
+
+1. Update the version in `package.json` and `package-lock.json`, and update `CHANGELOG.md`.
+2. Run `npm run check` to verify the release and build `dist`. Inspect `npm pack --dry-run`, then use `npm pack` to create the tarball and install it in a separate consumer project. Check the default and `/min` imports, declarations, and any changed examples or compiler files. Coordinate installed browser checks with downstream projects when browser behavior changes.
+3. Commit the verified release. When publication is authorized, run `npm publish --access public` from that commit. The `prepublishOnly` hook runs `npm run check` again.
+4. Confirm the version and `gitHead` from the npm registry, then smoke-test a fresh registry install. Tag the published commit `v<version>` and push that tag.

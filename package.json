@@ -63,10 +63,10 @@
         "test:compiler": "node --test Testing/compiler.test.mjs",
         "compiler:generate": "node scripts/compiler-support.mjs",
         "test:min": "npm run build && vitest run --config Testing/vitest.min.config.js",
-        "test:ui": "vitest --ui",
         "test:watch": "vitest --watch",
         "build": "node build.js",
-        "prepublishOnly": "npm run test:run && npm run test:min && npm run test:node && npm run test:types && npm run test:examples && npm run test:compiler"
+        "check": "npm run test:run && npm run test:min && npm run test:node && npm run test:types && npm run test:examples && npm run test:compiler",
+        "prepublishOnly": "npm run check"
     },
     "devDependencies": {
         "esbuild": "^0.25.3",

@@ -511,6 +511,10 @@ Delegation requires DOM selector/containment APIs, and hover helpers require the
 
 ---
 
+## Contributing
+
+See the [contributor guide](https://github.com/iWhatty/on-events/blob/main/CONTRIBUTING.md) for local setup, verification, and releases.
+
 ## License
 
 Licensed under AGPL-3.0 with WATT3D Additional Terms. See [LICENSE](./LICENSE) and [ADDITIONAL_TERMS.md](./ADDITIONAL_TERMS.md). Commercial AI/model-training use requires compliance with those terms or a separate WATT3D license. © WATT3D.
